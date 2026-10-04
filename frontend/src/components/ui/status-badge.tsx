@@ -1,52 +1,38 @@
-import type { ReactNode } from "react";
-import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const statusBadgeVariants = cva(
-  "inline-flex h-6 items-center gap-1.5 rounded-md border px-2 text-xs font-medium leading-none",
-  {
-    variants: {
-      status: {
-        pagado:
-          "border-success/30 bg-success/10 text-success",
-        pendiente:
-          "border-warning/35 bg-warning/10 text-foreground",
-        vencido:
-          "border-destructive/30 bg-destructive/10 text-destructive",
-        activo:
-          "border-success/30 bg-success/10 text-success",
-        inactivo:
-          "border-border bg-muted text-muted-foreground",
-      },
-    },
-    defaultVariants: {
-      status: "pendiente",
-    },
-  },
-);
+const styles = {
+  pagado: "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200",
+  pendiente: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+  vencido: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+  activo: "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200",
+  inactivo: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+} as const;
 
-const labels: Record<
-  NonNullable<VariantProps<typeof statusBadgeVariants>["status"]>,
-  string
-> = {
+const labels = {
   pagado: "Pagado",
   pendiente: "Pendiente",
   vencido: "Vencido",
   activo: "Activo",
   inactivo: "Inactivo",
-};
+} as const;
 
 export function StatusBadge({
   status,
   className,
   children,
 }: {
-  status: NonNullable<VariantProps<typeof statusBadgeVariants>["status"]>;
+  status: keyof typeof labels;
   className?: string;
-  children?: ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
-    <span className={cn(statusBadgeVariants({ status }), className)}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium",
+        styles[status],
+        className,
+      )}
+    >
       {children ?? labels[status]}
     </span>
   );

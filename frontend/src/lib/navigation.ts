@@ -1,12 +1,13 @@
 import type { Rol } from "@/lib/types";
 import type { LucideIcon } from "lucide-react";
 import {
+  CircleDollarSign,
   FileText,
+  History,
   LayoutDashboard,
   Receipt,
-  Settings2,
+  Search,
   Users,
-  Wallet,
 } from "lucide-react";
 
 export type NavLink = {
@@ -18,12 +19,12 @@ export type NavLink = {
 
 /** Navegación por rol:
  * - Admin: dashboard, beneficiarios (CRUD), pagos, reportes, config
- * - Tesorero: dashboard y facturas (emitir cobros)
+ * - Tesorero: dashboard, emitir cobros e historial de facturas
  */
 export const NAV_LINKS: NavLink[] = [
   {
     href: "/dashboard",
-    label: "Inicio",
+    label: "Dashboard",
     icon: LayoutDashboard,
     roles: ["administrador", "tesorero"],
   },
@@ -40,9 +41,15 @@ export const NAV_LINKS: NavLink[] = [
     roles: ["tesorero"],
   },
   {
+    href: "/historial",
+    label: "Historial",
+    icon: History,
+    roles: ["tesorero"],
+  },
+  {
     href: "/pagos",
-    label: "Pagos",
-    icon: Wallet,
+    label: "Consultar pago",
+    icon: Search,
     roles: ["administrador"],
   },
   {
@@ -53,8 +60,8 @@ export const NAV_LINKS: NavLink[] = [
   },
   {
     href: "/configuracion",
-    label: "Configuración",
-    icon: Settings2,
+    label: "Tarifa",
+    icon: CircleDollarSign,
     roles: ["administrador"],
   },
 ];

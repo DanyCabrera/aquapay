@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Receipt, Search } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError, downloadBase64Pdf } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
 import type { Recibo, UsuarioComunidad, Vivienda } from "@/lib/types";
 import { numeroALetras } from "@/lib/numero-a-letras";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Surface, nativeSelectClass } from "@/components/layout/page-header";
+import { nativeSelectClass } from "@/components/layout/page-header";
 import { PageStack, PageIntro } from "@/components/layout/page-stack";
-import { formatFecha, formatQuetzales } from "@/lib/format";
+import { formatDpi, formatFecha, formatQuetzales, formatRecibo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface Pendientes {
@@ -44,7 +44,6 @@ function todayIso() {
 }
 
 export function EmitirFacturaForm() {
-  const { user } = useAuth();
   const anioActual = new Date().getFullYear();
 
   const [usuarios, setUsuarios] = useState<UsuarioComunidad[]>([]);
@@ -259,31 +258,29 @@ export function EmitirFacturaForm() {
   return (
     <PageStack>
       <PageIntro
-        title="Emitir recibo"
-        description="Elija el beneficiario y el cobro. El total y el número se calculan solos."
+        title="Emitir"
         action={
           <p className="text-right">
-            <span className="block text-sm text-muted-foreground">
-              Siguiente recibo
+            <span className="block text-caption text-muted-foreground">
+              Siguiente
             </span>
-            <span className="font-mono text-2xl font-semibold tabular-nums text-primary">
-              {numeroRecibo}
+            <span className="font-mono text-[1.75rem] font-medium tabular-nums leading-none text-primary">
+              {formatRecibo(numeroRecibo === "—" ? "" : numeroRecibo)}
             </span>
           </p>
         }
       />
 
-      <Surface className="p-5 sm:p-6">
-        <div className="space-y-6">
+      <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="buscar">Beneficiario</Label>
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="buscar"
-                  className="h-10 pl-9"
-                  placeholder="Buscar por nombre o DPI…"
+                  className="h-10 rounded-full pl-10"
+                  placeholder="Nombre o DPI"
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                 />
@@ -293,10 +290,10 @@ export function EmitirFacturaForm() {
                 value={usuarioId}
                 onChange={(e) => onSelectUsuario(e.target.value)}
               >
-                <option value="">Seleccione un beneficiario…</option>
+                <option value="">Beneficiario</option>
                 {usuariosFiltrados.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.nombreCompleto} — DPI {u.dpi}
+                    {u.nombreCompleto} — {formatDpi(u.dpi)}
                   </option>
                 ))}
               </select>
@@ -308,14 +305,14 @@ export function EmitirFacturaForm() {
                 className="h-10"
                 value={usuario?.nombreCompleto ?? ""}
                 readOnly
-                placeholder="Se llena al elegir el usuario"
+                placeholder="—"
               />
             </div>
             <div className="space-y-1.5">
               <Label>DPI</Label>
               <Input
                 className="h-10 font-mono"
-                value={usuario?.dpi ?? ""}
+                value={usuario ? formatDpi(usuario.dpi, "") : ""}
                 readOnly
                 placeholder="—"
               />
@@ -346,7 +343,7 @@ export function EmitirFacturaForm() {
                   className="h-10"
                   value={vivienda?.direccion ?? ""}
                   readOnly
-                  placeholder="Se llena al elegir el usuario"
+                  placeholder="—"
                 />
               </div>
             )}
@@ -360,33 +357,23 @@ export function EmitirFacturaForm() {
                 placeholder="—"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>No. de recibo</Label>
-              <Input
-                className="h-10 font-mono"
-                value={numeroRecibo}
-                readOnly
-              />
-            </div>
           </div>
 
           <div className="space-y-2">
             <Label>Tipo de pago</Label>
             <div
-              className="grid gap-2 sm:grid-cols-2"
+              className="flex flex-wrap gap-x-8 gap-y-1"
               role="radiogroup"
               aria-label="Tipo de pago"
             >
               <TipoPagoCard
                 selected={tipo === "tarifa"}
                 title="Tarifa anual"
-                description="Servicio por año, por chorro"
                 onSelect={() => setTipo("tarifa")}
               />
               <TipoPagoCard
                 selected={tipo === "compra"}
                 title="Compra de chorro"
-                description="Cobro único de instalación"
                 onSelect={() => setTipo("compra")}
               />
             </div>
@@ -408,9 +395,9 @@ export function EmitirFacturaForm() {
                   disabled={!usuarioId}
                 />
                 {anioError ? (
-                  <p className="text-xs text-destructive">{anioError}</p>
+                  <p className="text-caption text-destructive">{anioError}</p>
                 ) : aniosAPagar.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-caption text-muted-foreground">
                     Se cobrará{" "}
                     {aniosAPagar.length === 1
                       ? `el año ${aniosAPagar[0]}`
@@ -420,8 +407,8 @@ export function EmitirFacturaForm() {
                       : ""}
                   </p>
                 ) : aniosPendientesOrdenados.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Años pendientes: {aniosPendientesOrdenados.join(", ")}
+                  <p className="text-caption text-muted-foreground">
+                    Pendiente: {aniosPendientesOrdenados.join(", ")}
                   </p>
                 ) : null}
               </div>
@@ -441,10 +428,8 @@ export function EmitirFacturaForm() {
               <div className="space-y-1.5">
                 <Label>Chorro a cobrar</Label>
                 {chorrosCompra.length === 0 ? (
-                  <p className="rounded-md border border-border bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
-                    {usuarioId
-                      ? "No hay compra de chorro pendiente."
-                      : "Seleccione un beneficiario."}
+                  <p className="py-2.5 text-sm text-muted-foreground">
+                    {usuarioId ? "Sin compra pendiente." : "Elija un beneficiario."}
                   </p>
                 ) : (
                   <select
@@ -476,9 +461,9 @@ export function EmitirFacturaForm() {
           <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Total a pagar</Label>
-              <div className="flex h-12 items-center border border-border bg-muted px-4 font-mono text-xl font-semibold tabular-nums text-primary">
+              <p className="flex h-12 items-center font-mono text-xl tabular-nums">
                 {formatQuetzales(total)}
-              </div>
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label>Cantidad en letras</Label>
@@ -486,12 +471,9 @@ export function EmitirFacturaForm() {
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">
-              Emite: {user?.nombre ?? "Tesorero"}
-            </p>
+          <div className="flex justify-end">
             <Button
-              className="h-10 min-w-44"
+              className="h-11 min-w-44 rounded-full md:h-10"
               disabled={!canSubmit}
               onClick={guardar}
             >
@@ -501,20 +483,27 @@ export function EmitirFacturaForm() {
                   Generando…
                 </>
               ) : (
-                "Emitir recibo"
+                <>
+                  <Receipt className="size-4" />
+                  Emitir
+                </>
               )}
             </Button>
           </div>
-        </div>
-      </Surface>
+      </div>
 
       <section>
-        <h2>Últimos recibos</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <h2>Últimos recibos</h2>
+          <Link
+            href="/historial"
+            className="text-caption text-primary transition-ui hover:underline"
+          >
+            Historial
+          </Link>
+        </div>
         {recientes.length === 0 ? (
-          <p className="mt-3 max-w-prose text-base text-muted-foreground">
-            Aquí aparecen los recibos que emita hoy. El primero lleva el número
-            de arriba.
-          </p>
+          <p className="mt-3 text-caption text-muted-foreground">Sin recibos.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-130 text-left text-base">
@@ -530,7 +519,7 @@ export function EmitirFacturaForm() {
                 {recientes.map((r) => (
                   <tr key={r.id}>
                     <td className="py-3 pr-4 font-mono tabular-nums text-primary">
-                      {r.numeroRecibo}
+                      {formatRecibo(r.numeroRecibo)}
                     </td>
                     <td className="max-w-55 truncate py-3 pr-4">
                       {r.vivienda?.usuario?.nombreCompleto ?? "—"}
@@ -555,12 +544,10 @@ export function EmitirFacturaForm() {
 function TipoPagoCard({
   selected,
   title,
-  description,
   onSelect,
 }: {
   selected: boolean;
   title: string;
-  description: string;
   onSelect: () => void;
 }) {
   return (
@@ -570,14 +557,13 @@ function TipoPagoCard({
       aria-checked={selected}
       onClick={onSelect}
       className={cn(
-        "rounded-md border px-4 py-3 text-left transition-ui focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30",
+        "min-h-10 rounded-full border px-4 py-2.5 text-left text-sm font-medium transition-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
         selected
-          ? "border-primary bg-muted text-foreground"
-          : "border-border bg-background hover:bg-muted",
+          ? "border-primary bg-primary/10 text-foreground"
+          : "border-border bg-card text-muted-foreground hover:bg-muted",
       )}
     >
-      <p className="text-sm font-medium">{title}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      {title}
     </button>
   );
 }

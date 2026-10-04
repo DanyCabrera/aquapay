@@ -57,7 +57,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b border-border transition-colors duration-150 hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b border-border transition-ui hover:bg-muted/40 data-[state=selected]:bg-primary/10",
         className
       )}
       {...props}
@@ -70,9 +70,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        // pl/pr 5 en los extremos: las tablas viven dentro de tarjetas, así
-        // que las celdas de borde deben alinear con el acolchado de la hoja.
-        "h-11 px-3 text-left align-middle text-caption font-medium whitespace-nowrap text-muted-foreground first:pl-5 last:pr-5 [&:has([role=checkbox])]:pr-0",
+        "h-12 px-5 text-left align-middle text-caption font-medium whitespace-nowrap text-muted-foreground",
         className
       )}
       {...props}
@@ -85,7 +83,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "px-3 py-3 align-middle whitespace-nowrap first:pl-5 last:pr-5 [&:has([role=checkbox])]:pr-0",
+        "px-5 py-3.5 align-middle whitespace-nowrap",
         className
       )}
       {...props}

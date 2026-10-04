@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { UsuarioSistema } from "@/lib/types";
@@ -42,16 +42,16 @@ export default function LoginPage() {
 
   const dpiError =
     touched.dpi && dpi.length === 0
-      ? "Ingresa tu DPI."
-      : touched.dpi && dpi.length < DPI_LENGTH
-        ? "El DPI debe tener 13 dígitos."
+              ? "Ingrese el DPI."
+              : touched.dpi && dpi.length < DPI_LENGTH
+                ? "El DPI debe tener 13 dígitos."
         : null;
 
   const passwordError =
     touched.password && password.length === 0
-      ? "Ingresa tu contraseña."
-      : touched.password && password.length < 8
-        ? "La contraseña debe tener al menos 8 caracteres."
+              ? "Ingrese la contraseña."
+              : touched.password && password.length < 8
+                ? "Mínimo 8 caracteres."
         : null;
 
   const dpiComplete = dpi.length === DPI_LENGTH;
@@ -83,7 +83,7 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch {
       setFormError(
-        "DPI o contraseña incorrectos. Verifica e intenta de nuevo.",
+        "DPI o contraseña incorrectos.",
       );
     } finally {
       setLoading(false);
@@ -92,17 +92,12 @@ export default function LoginPage() {
 
   return (
     <AuthShell mode="login">
-      <div className="space-y-7">
-        <div>
-          <h1>Entrar</h1>
-          <p className="mt-2 text-base text-muted-foreground">
-            DPI y contraseña del tesorero o administrador.
-          </p>
-        </div>
+      <div className="space-y-8">
+        <h1>Entrar</h1>
 
         <form onSubmit={onCredentialsSubmit} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label htmlFor={dpiId} className="text-[13px] font-medium">
+            <Label htmlFor={dpiId} className="text-caption font-medium">
               DPI
             </Label>
             <Input
@@ -130,7 +125,7 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor={passwordId} className="text-[13px] font-medium">
+            <Label htmlFor={passwordId} className="text-caption font-medium">
               Contraseña
             </Label>
             <div className="relative">
@@ -167,7 +162,7 @@ export default function LoginPage() {
               </button>
             </div>
             {passwordError && (
-              <p id={passwordErrorId} className="text-xs text-destructive">
+              <p id={passwordErrorId} className="text-caption text-destructive">
                 {passwordError}
               </p>
             )}
@@ -176,7 +171,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-between gap-3 pt-0.5">
             <label
               htmlFor={rememberId}
-              className="flex cursor-pointer items-center gap-2 text-[13px] text-muted-foreground"
+              className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground"
             >
               <input
                 id={rememberId}
@@ -191,16 +186,15 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowRecoverHint((v) => !v)}
-              className="text-[13px] text-foreground underline-offset-4 transition-ui hover:underline focus-visible:outline-none"
+              className="text-caption text-foreground underline-offset-4 transition-ui hover:underline focus-visible:outline-none"
             >
-              ¿Olvidaste tu contraseña?
+              ¿Olvidó la contraseña?
             </button>
           </div>
 
           {showRecoverHint && (
-            <p className="rounded-md border border-border bg-muted/60 px-3 py-2 text-caption leading-relaxed text-muted-foreground">
-              El restablecimiento automático no está disponible. Contacte al
-              administrador del sistema para recuperar el acceso.
+            <p className="text-caption leading-relaxed text-muted-foreground">
+              Pida el restablecimiento al administrador.
             </p>
           )}
 
@@ -225,13 +219,15 @@ export default function LoginPage() {
                 Entrando…
               </>
             ) : (
-              "Iniciar sesión"
+                <>
+                  <LogIn className="size-4" />
+                  Entrar
+                </>
             )}
           </Button>
         </form>
 
-        <p className="border-t border-border pt-5 text-center text-sm text-muted-foreground">
-          ¿No tienes una cuenta?{" "}
+        <p className="border-t border-border pt-5 text-center text-caption text-muted-foreground">
           <Link
             href="/registro"
             className="font-medium text-foreground underline-offset-4 hover:underline"

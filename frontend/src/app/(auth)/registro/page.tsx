@@ -72,28 +72,28 @@ export default function RegistroPage() {
 
   const nombreError =
     touched.nombre && form.nombre.trim().length === 0
-      ? "Ingresa tu nombre completo."
-      : touched.nombre && form.nombre.trim().length < 3
-        ? "El nombre debe tener al menos 3 caracteres."
+              ? "Ingrese el nombre completo."
+              : touched.nombre && form.nombre.trim().length < 3
+                ? "Mínimo 3 caracteres."
         : null;
 
   const dpiError =
     touched.dpi && form.dpi.length === 0
-      ? "Ingresa tu DPI."
-      : touched.dpi && form.dpi.length < DPI_LENGTH
-        ? "El DPI debe tener 13 dígitos."
+              ? "Ingrese el DPI."
+              : touched.dpi && form.dpi.length < DPI_LENGTH
+                ? "El DPI debe tener 13 dígitos."
         : null;
 
   const passwordError =
     touched.password && form.password.length === 0
-      ? "Ingresa una contraseña."
-      : touched.password && form.password.length < 8
-        ? "La contraseña debe tener al menos 8 caracteres."
+              ? "Ingrese una contraseña."
+              : touched.password && form.password.length < 8
+                ? "Mínimo 8 caracteres."
         : null;
 
   const termsError =
     touched.terms && !terms
-      ? "Debes aceptar los términos para continuar."
+              ? "Acepte los términos para continuar."
       : null;
 
   const strength = useMemo(
@@ -139,7 +139,7 @@ export default function RegistroPage() {
           rol,
         }),
       });
-      toast.success("Cuenta creada. Ahora inicia sesión.");
+      toast.success("Cuenta creada.");
       router.push("/login");
     } catch (err) {
       toast.error(
@@ -153,20 +153,11 @@ export default function RegistroPage() {
   return (
     <AuthShell mode="registro">
       <div className="space-y-8">
-        <div className="space-y-1.5">
-          <h1>Crear cuenta</h1>
-          <p className="mt-1 max-w-prose text-base text-muted-foreground">
-            {!opcionesCargadas
-              ? "Comprobando el servidor…"
-              : permitirAdministrador
-                ? "Aún no hay administrador: puede crear el primero o un tesorero."
-                : "El registro público solo permite cuentas de tesorero."}
-          </p>
-        </div>
+        <h1>Crear cuenta</h1>
 
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label htmlFor={nombreId} className="text-[13px] font-medium">
+            <Label htmlFor={nombreId} className="text-caption font-medium">
               Nombre completo
             </Label>
             <Input
@@ -183,14 +174,14 @@ export default function RegistroPage() {
               className={authFieldClass}
             />
             {nombreError && (
-              <p id={nombreErrorId} className="text-xs text-destructive">
+              <p id={nombreErrorId} className="text-caption text-destructive">
                 {nombreError}
               </p>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor={dpiId} className="text-[13px] font-medium">
+            <Label htmlFor={dpiId} className="text-caption font-medium">
               DPI
             </Label>
             <Input
@@ -216,45 +207,32 @@ export default function RegistroPage() {
             ) : null}
           </div>
 
+          {permitirAdministrador ? (
           <div className="space-y-1.5">
-            <Label className="text-[13px] font-medium">Rol</Label>
+            <Label className="text-caption font-medium">Rol</Label>
             <div
-              className={cn(
-                "grid gap-2",
-                permitirAdministrador
-                  ? "grid-cols-1 sm:grid-cols-2"
-                  : "grid-cols-1",
-              )}
+              className="flex flex-wrap gap-x-8 gap-y-1"
               role="radiogroup"
               aria-label="Rol del sistema"
             >
               <RoleCard
                 selected={form.rol === "tesorero"}
                 title="Tesorero"
-                description="Emite recibos y consulta beneficiarios"
                 disabled={loading}
                 onSelect={() => setForm({ ...form, rol: "tesorero" })}
               />
-              {permitirAdministrador && (
-                <RoleCard
-                  selected={form.rol === "administrador"}
-                  title="Administrador"
-                  description="Arranque inicial del sistema"
-                  disabled={loading}
-                  onSelect={() => setForm({ ...form, rol: "administrador" })}
-                />
-              )}
+              <RoleCard
+                selected={form.rol === "administrador"}
+                title="Administrador"
+                disabled={loading}
+                onSelect={() => setForm({ ...form, rol: "administrador" })}
+              />
             </div>
-            {opcionesCargadas && !permitirAdministrador && (
-              <p className="text-xs text-muted-foreground">
-                Ya existe un administrador. Solo puede registrarse como
-                tesorero.
-              </p>
-            )}
           </div>
+          ) : null}
 
           <div className="space-y-1.5">
-            <Label htmlFor={passwordId} className="text-[13px] font-medium">
+            <Label htmlFor={passwordId} className="text-caption font-medium">
               Contraseña
             </Label>
             <div className="relative">
@@ -263,7 +241,7 @@ export default function RegistroPage() {
                 name="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
-                placeholder="Mínimo 8 caracteres"
+                placeholder=""
                 value={form.password}
                 onChange={(e) =>
                   setForm({ ...form, password: e.target.value })
@@ -291,15 +269,15 @@ export default function RegistroPage() {
               </button>
             </div>
             {passwordError ? (
-              <p id={passwordErrorId} className="text-xs text-destructive">
+              <p id={passwordErrorId} className="text-caption text-destructive">
                 {passwordError}
               </p>
             ) : (
               <PasswordStrengthMeter password={form.password} />
             )}
             {touched.password && !passwordError && strength === "debil" && (
-              <p className="text-xs text-destructive">
-                Usa mayúsculas, números o símbolos para fortalecerla.
+              <p className="text-caption text-destructive">
+                Use mayúsculas, números o símbolos.
               </p>
             )}
           </div>
@@ -307,7 +285,7 @@ export default function RegistroPage() {
           <div className="space-y-1.5">
             <label
               htmlFor={termsId}
-              className="flex cursor-pointer items-start gap-2 text-[13px] text-muted-foreground"
+              className="flex cursor-pointer items-start gap-2 text-caption text-muted-foreground"
             >
               <input
                 id={termsId}
@@ -323,12 +301,11 @@ export default function RegistroPage() {
                 className="mt-0.5 size-3.5 rounded border-border accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/40"
               />
               <span>
-                Acepto los términos de uso y el tratamiento de datos personales
-                (DPI).
+                Acepto el tratamiento del DPI.
               </span>
             </label>
             {termsError && (
-              <p id={termsErrorId} className="text-xs text-destructive">
+              <p id={termsErrorId} className="text-caption text-destructive">
                 {termsError}
               </p>
             )}
@@ -350,13 +327,12 @@ export default function RegistroPage() {
           </Button>
         </form>
 
-        <p className="border-t border-border pt-5 text-center text-sm text-muted-foreground">
-          ¿Ya tienes una cuenta?{" "}
+        <p className="border-t border-border pt-5 text-center text-caption text-muted-foreground">
           <Link
             href="/login"
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            Iniciar sesión
+            Entrar
           </Link>
         </p>
       </div>
@@ -367,13 +343,11 @@ export default function RegistroPage() {
 function RoleCard({
   selected,
   title,
-  description,
   disabled,
   onSelect,
 }: {
   selected: boolean;
   title: string;
-  description: string;
   disabled?: boolean;
   onSelect: () => void;
 }) {
@@ -385,21 +359,13 @@ function RoleCard({
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        "rounded-md border px-3.5 py-3 text-left transition-ui focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 disabled:opacity-50",
+        "min-h-10 border-b px-0 py-2 text-left text-sm transition-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:text-muted-foreground",
         selected
-          ? "border-primary bg-muted text-foreground"
-          : "border-border bg-background hover:bg-muted",
+          ? "border-primary text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
       )}
     >
-      <p className="text-sm font-medium">{title}</p>
-      <p
-        className={cn(
-          "mt-0.5 text-xs leading-snug",
-          "text-muted-foreground",
-        )}
-      >
-        {description}
-      </p>
+      {title}
     </button>
   );
 }

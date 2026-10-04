@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function PageStack({
@@ -8,30 +10,45 @@ export function PageStack({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("flex flex-col gap-7", className)}>{children}</div>;
+  return <div className={cn("flex flex-col gap-6", className)}>{children}</div>;
+}
+
+export function PageBackLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-ui hover:text-foreground active:scale-[0.98]"
+    >
+      <ArrowLeft className="size-3.5" />
+      {children}
+    </Link>
+  );
 }
 
 export function PageIntro({
-  title,
   description,
   action,
 }: {
-  title: string;
+  title?: string;
   description?: string;
   action?: ReactNode;
 }) {
+  if (!description && !action) return null;
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        <h1>{title}</h1>
-        {description ? (
-          <p className="mt-2 max-w-prose text-base text-muted-foreground">
-            {description}
-          </p>
-        ) : null}
-      </div>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      {description ? (
+        <p className="max-w-xl text-sm text-muted-foreground">{description}</p>
+      ) : (
+        <span />
+      )}
       {action ? (
-        <div className="flex flex-wrap items-center gap-2">{action}</div>
+        <div className="flex flex-wrap items-center justify-end gap-2">{action}</div>
       ) : null}
     </div>
   );

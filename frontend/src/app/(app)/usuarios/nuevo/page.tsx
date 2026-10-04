@@ -1,9 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import type { UsuarioComunidad, Vivienda } from "@/lib/types";
@@ -11,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
+import { PageBackLink } from "@/components/layout/page-stack";
 import { PRECIO_CHORRO_UNITARIO } from "@/lib/navigation";
 import { formatQuetzales } from "@/lib/format";
 
@@ -146,49 +144,19 @@ export default function NuevoBeneficiarioPage() {
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-8 flex items-start justify-between gap-3">
-        <div>
-          <h1>Nuevo beneficiario</h1>
-          <p className="mt-2 text-base text-muted-foreground">
-            Paso {paso} de 3: {stepMeta.label}.
-          </p>
-        </div>
-        <Link
-          href="/usuarios"
-          className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-          aria-label="Cancelar"
-        >
-          <X className="size-4" />
-        </Link>
+    <div className="max-w-xl">
+      <div className="mb-8 space-y-3">
+        <PageBackLink href="/usuarios">Volver a beneficiarios</PageBackLink>
+        <p className="text-caption text-muted-foreground">
+          {paso} / 3 · {stepMeta.label}
+        </p>
       </div>
-
-      <ol className="mb-8 flex gap-4 text-sm">
-        {STEPS.map((s) => (
-          <li
-            key={s.id}
-            className={cn(
-              s.id === paso
-                ? "font-medium text-foreground"
-                : s.id < paso
-                  ? "text-foreground"
-                  : "text-muted-foreground",
-            )}
-          >
-            {s.id}. {s.label}
-          </li>
-        ))}
-      </ol>
 
       {paso === 1 && (
         <form
           onSubmit={submitPaso1}
           className="space-y-5"
         >
-          <p className="text-sm text-muted-foreground">
-            Use el nombre y el DPI tal como aparecen en el documento.
-          </p>
-
           <div className="space-y-1.5">
             <Label htmlFor="nombre">Nombre completo</Label>
             <Input
@@ -210,7 +178,7 @@ export default function NuevoBeneficiarioPage() {
               <Input
                 id="dpi"
                 className="h-10 font-mono"
-                placeholder="#############"
+                placeholder="0000 00000 0000"
                 value={personal.dpi}
                 onChange={(e) =>
                   setPersonal({
@@ -244,7 +212,6 @@ export default function NuevoBeneficiarioPage() {
               variant="ghost"
               onClick={() => router.push("/usuarios")}
             >
-              <X data-icon="inline-start" />
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
@@ -265,7 +232,7 @@ export default function NuevoBeneficiarioPage() {
             </Label>
             <textarea
               id="direccion"
-              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring/30"
+              className="min-h-24 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
               placeholder="Lote 24, cerca de la escuela"
               value={vivienda.direccion}
               onChange={(e) =>
@@ -300,15 +267,14 @@ export default function NuevoBeneficiarioPage() {
           <div className="flex items-center justify-between gap-4 py-1">
             <div>
               <p className="text-sm font-medium">Vivienda activa</p>
-              <p className="text-xs text-muted-foreground">
-                Incluirla en los cobros del servicio.
-              </p>
             </div>
             <Switch
               checked={vivienda.activa}
               onCheckedChange={(checked) =>
                 setVivienda({ ...vivienda, activa: checked })
               }
+              onLabel="Activa"
+              offLabel="Inactiva"
               aria-label="Vivienda activa"
             />
           </div>
@@ -361,10 +327,6 @@ export default function NuevoBeneficiarioPage() {
               value={formatQuetzales(PRECIO_CHORRO_UNITARIO)}
               readOnly
             />
-            <p className="text-xs text-muted-foreground">
-              Precio fijo de compra: {formatQuetzales(PRECIO_CHORRO_UNITARIO)} por
-              chorro.
-            </p>
           </div>
 
           <div className="space-y-1.5">

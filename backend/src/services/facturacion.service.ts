@@ -327,13 +327,15 @@ export class FacturacionService {
     });
   }
 
-  async listarRecibos(opts?: { q?: string; limit?: number }) {
-    const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+  async listarRecibos(opts?: { q?: string; limit?: number; anio?: number }) {
+    const limit = Math.min(Math.max(opts?.limit ?? 200, 1), 500);
     const q = opts?.q?.trim();
+    const anio =
+      opts?.anio && Number.isFinite(opts.anio) ? Math.trunc(opts.anio) : undefined;
 
     // 1) IDs sin joins+take (TypeORM DISTINCT + relaciones rompe / columnas mal mapeadas)
     let ids: string[];
-    if (!q) {
+    if (!q && !anio) {
       const rows = await this.recibos().find({
         select: { id: true },
         order: { fechaPago: "DESC", fechaCreacion: "DESC" },
@@ -341,16 +343,25 @@ export class FacturacionService {
       });
       ids = rows.map((r) => r.id);
     } else {
-      const rows = await this.recibos()
+      const qb = this.recibos()
         .createQueryBuilder("r")
         .leftJoin("r.vivienda", "v")
         .leftJoin("v.usuario", "u")
-        .select("r.id", "id")
-        .where(
+        .select("r.id", "id");
+
+      if (q) {
+        qb.andWhere(
           `(r.numero_recibo ILIKE :q OR u.nombre_completo ILIKE :q OR u.dpi ILIKE :q)`,
           { q: `%${q}%` },
-        )
+        );
+      }
+      if (anio) {
+        qb.andWhere("EXTRACT(YEAR FROM r.fecha_pago) = :anio", { anio });
+      }
+
+      const rows = await qb
         .orderBy("r.fecha_pago", "DESC")
+        .addOrderBy("r.fecha_creacion", "DESC")
         .limit(limit)
         .getRawMany<{ id: string }>();
       ids = rows.map((r) => r.id).filter(Boolean);
@@ -432,19 +443,37 @@ export class FacturacionService {
       .andWhere("EXTRACT(MONTH FROM r.fecha_pago) = :mes", { mes })
       .getMany();
 
-    const ingresosMes = recibosMes.reduce(
-      (s, r) => s + Number(r.totalPagado),
-      0,
-    );
+    const ingresosMesTarifa = recibosMes
+      .filter((r) => r.tipoCobro === "tarifa_anual")
+      .reduce((s, r) => s + Number(r.totalPagado), 0);
+    const ingresosMesChorro = recibosMes
+      .filter((r) => r.tipoCobro === "compra_chorro")
+      .reduce((s, r) => s + Number(r.totalPagado), 0);
+    const ingresosMes = ingresosMesTarifa + ingresosMesChorro;
 
     const ingresosAnioRows = await this.recibos()
       .createQueryBuilder("r")
       .select("EXTRACT(MONTH FROM r.fecha_pago)", "mes")
+      .addSelect("r.tipo_cobro", "tipo")
       .addSelect("SUM(r.total_pagado)", "total")
       .where("EXTRACT(YEAR FROM r.fecha_pago) = :anio", { anio })
       .groupBy("EXTRACT(MONTH FROM r.fecha_pago)")
+      .addGroupBy("r.tipo_cobro")
       .orderBy("mes", "ASC")
-      .getRawMany();
+      .getRawMany<{ mes: string; tipo: string; total: string }>();
+
+    const porMes = new Map<
+      number,
+      { tarifaAnual: number; compraChorro: number }
+    >();
+    for (const row of ingresosAnioRows) {
+      const mesNum = Number(row.mes);
+      const actual = porMes.get(mesNum) ?? { tarifaAnual: 0, compraChorro: 0 };
+      const monto = Number(row.total) || 0;
+      if (row.tipo === "compra_chorro") actual.compraChorro += monto;
+      else actual.tarifaAnual += monto;
+      porMes.set(mesNum, actual);
+    }
 
     return {
       totalUsuarios,
@@ -452,10 +481,16 @@ export class FacturacionService {
       totalChorros,
       facturasMes: recibosMes.length,
       ingresosMes,
-      ingresosPorMes: ingresosAnioRows.map((r) => ({
-        mes: Number(r.mes),
-        total: Number(r.total),
-      })),
+      ingresosMesTarifa,
+      ingresosMesChorro,
+      ingresosPorMes: [...porMes.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([mesNum, v]) => ({
+          mes: mesNum,
+          tarifaAnual: v.tarifaAnual,
+          compraChorro: v.compraChorro,
+          total: v.tarifaAnual + v.compraChorro,
+        })),
       tarifaAnual: await configService.getTarifaAnual(),
     };
   }

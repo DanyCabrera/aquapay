@@ -1,12 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import type { UsuarioComunidad } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -19,9 +20,10 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader, Surface } from "@/components/layout/page-header";
+import { PageStack, PageBackLink } from "@/components/layout/page-stack";
+import { cn } from "@/lib/utils";
 import { PRECIO_CHORRO_UNITARIO } from "@/lib/navigation";
-import { formatFecha, formatQuetzales } from "@/lib/format";
+import { formatDpi, formatFecha, formatQuetzales } from "@/lib/format";
 
 export default function UsuarioDetallePage() {
   const { id } = useParams<{ id: string }>();
@@ -121,125 +123,122 @@ export default function UsuarioDetallePage() {
 
   if (!data) {
     return (
-      <div className="space-y-3">
+      <PageStack>
+        <PageBackLink href="/usuarios">Volver a beneficiarios</PageBackLink>
         <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-32" />
         <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-40 w-full" />
-      </div>
+      </PageStack>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title={data.nombreCompleto}
-        description={`DPI ${data.dpi}${data.telefono ? ` · ${data.telefono}` : ""}`}
-        breadcrumbs={[
-          { label: "Inicio", href: "/dashboard" },
-          { label: "Beneficiarios", href: "/usuarios" },
-          { label: data.nombreCompleto },
-        ]}
-        actions={
-          <>
-            <StatusBadge status={data.activo ? "activo" : "inactivo"} />
-            {isAdmin && (
-              <>
-                <div className="flex items-center gap-2.5 rounded-md border border-border bg-card px-3 py-1.5">
-                  <span className="text-caption text-muted-foreground">
-                    {data.activo ? "Habilitado" : "Deshabilitado"}
-                  </span>
-                  <Switch
-                    checked={data.activo}
-                    onCheckedChange={() => toggleActivo()}
-                    aria-label={
-                      data.activo ? "Deshabilitar usuario" : "Habilitar usuario"
-                    }
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setViviendaOpen(true)}
-                >
-                  Agregar vivienda
-                </Button>
-              </>
-            )}
-          </>
-        }
-      />
+    <PageStack>
+      <PageBackLink href="/usuarios">Volver a beneficiarios</PageBackLink>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2>{data.nombreCompleto}</h2>
+          <p className="mt-0.5 font-mono text-caption text-muted-foreground">
+            {formatDpi(data.dpi)}
+          </p>
+        </div>
+        {isAdmin ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <Switch
+              checked={data.activo}
+              onCheckedChange={() => toggleActivo()}
+              onLabel="Activo"
+              offLabel="Inactivo"
+              aria-label={
+                data.activo ? "Deshabilitar usuario" : "Habilitar usuario"
+              }
+            />
+            <Link
+              href={`/pagos?dpi=${data.dpi}`}
+              className={cn(buttonVariants({ variant: "outline" }), "rounded-full")}
+            >
+              Consultar pago
+            </Link>
+            <Button variant="outline" onClick={() => setViviendaOpen(true)}>
+              Agregar vivienda
+            </Button>
+          </div>
+        ) : (
+          <StatusBadge status={data.activo ? "activo" : "inactivo"} />
+        )}
+      </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight">
-          Viviendas y chorros
-        </h2>
+      <section>
+        <h2 className="mb-3">Viviendas y chorros</h2>
         {(data.viviendas ?? []).length === 0 ? (
           <EmptyState
             title="Sin viviendas"
-            description="Este usuario aún no tiene viviendas registradas."
+            description="La vivienda y los chorros se anotan en esta ficha."
             action={
               isAdmin ? (
-                <Button size="sm" onClick={() => setViviendaOpen(true)}>
+                <Button onClick={() => setViviendaOpen(true)}>
                   Agregar vivienda
                 </Button>
               ) : undefined
             }
           />
         ) : (
-          data.viviendas!.map((v) => (
-            <Surface key={v.id} className="p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{v.direccion}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Cobro desde{" "}
-                    <span className="tabular-nums">{v.anioInicioCobro}</span> ·{" "}
-                    {v.activa ? "Activa" : "Inactiva"}
-                  </p>
+          <div className="space-y-8">
+            {data.viviendas!.map((v) => (
+              <div key={v.id} className="border-t border-border pt-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{v.direccion}</p>
+                    <p className="mt-0.5 text-caption text-muted-foreground">
+                      Cobro desde{" "}
+                      <span className="tabular-nums">{v.anioInicioCobro}</span>
+                      {" · "}
+                      {v.activa ? "Activa" : "Inactiva"}
+                    </p>
+                  </div>
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setChorroForm({ cantidad: 1 });
+                        setChorroOpen(v.id);
+                      }}
+                    >
+                      Agregar chorro
+                    </Button>
+                  )}
                 </div>
-                {isAdmin && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setChorroForm({ cantidad: 1 });
-                      setChorroOpen(v.id);
-                    }}
-                  >
-                    Agregar chorro
-                  </Button>
-                )}
-              </div>
-              <ul className="mt-3 divide-y divide-border overflow-hidden rounded-md border border-border">
-                {(v.chorros ?? []).map((c) => (
-                  <li
-                    key={c.id}
-                    className="flex flex-wrap items-center justify-between gap-2 bg-muted/20 px-3 py-2 text-sm transition-ui hover:bg-muted/40"
-                  >
-                    <span className="text-muted-foreground">
-                      <span className="font-mono tabular-nums text-foreground">
-                        {c.cantidad}
-                      </span>{" "}
-                      chorro(s) · Compra{" "}
-                      <span className="font-mono tabular-nums">
-                        {formatQuetzales(c.precioCompra)}
-                      </span>{" "}
-                      · Inst.{" "}
-                      <span className="font-mono tabular-nums">
-                        {formatFecha(c.fechaInstalacion)}
+                <ul className="mt-3 divide-y divide-border border-y border-border">
+                  {(v.chorros ?? []).map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        <span className="font-mono tabular-nums text-foreground">
+                          {c.cantidad}
+                        </span>{" "}
+                        chorro(s) · Compra{" "}
+                        <span className="font-mono tabular-nums">
+                          {formatQuetzales(c.precioCompra)}
+                        </span>{" "}
+                        · Inst.{" "}
+                        <span className="font-mono tabular-nums">
+                          {formatFecha(c.fechaInstalacion)}
+                        </span>
                       </span>
-                    </span>
-                    <StatusBadge status={c.activo ? "activo" : "inactivo"} />
-                  </li>
-                ))}
-                {(v.chorros ?? []).length === 0 && (
-                  <li className="px-3 py-3 text-sm text-muted-foreground">
-                    Sin chorros registrados
-                  </li>
-                )}
-              </ul>
-            </Surface>
-          ))
+                      <StatusBadge status={c.activo ? "activo" : "inactivo"} />
+                    </li>
+                  ))}
+                  {(v.chorros ?? []).length === 0 && (
+                    <li className="py-3 text-sm text-muted-foreground">
+                      Sin chorros
+                    </li>
+                  )}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
@@ -316,6 +315,6 @@ export default function UsuarioDetallePage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageStack>
   );
 }

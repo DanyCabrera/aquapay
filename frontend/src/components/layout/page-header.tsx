@@ -42,7 +42,7 @@ export function PageHeader({
         <div className="min-w-0 space-y-1">
           <h1>{title}</h1>
           {description ? (
-            <p className="mt-1 max-w-prose text-base text-muted-foreground">
+            <p className="mt-1 max-w-prose text-caption text-muted-foreground">
               {description}
             </p>
           ) : null}
@@ -63,7 +63,7 @@ export function Surface({
   return (
     <div
       className={cn(
-        "rounded-md border border-border bg-card text-card-foreground",
+        "rounded-xl border border-border bg-card text-card-foreground shadow-sm",
         className,
       )}
       {...props}
@@ -74,4 +74,4 @@ export function Surface({
 }
 
 export const nativeSelectClass =
-  "flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground transition-ui outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50";
+  "flex h-11 w-full rounded-full border border-border bg-card px-3 text-sm text-foreground transition-ui outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground md:h-10";

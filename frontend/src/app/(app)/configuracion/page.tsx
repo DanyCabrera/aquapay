@@ -2,13 +2,14 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Save } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, Surface } from "@/components/layout/page-header";
+import { PageStack, PageIntro } from "@/components/layout/page-stack";
 
 export default function ConfiguracionPage() {
   const { user } = useAuth();
@@ -51,25 +52,18 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Tarifa anual"
-        description="Monto fijo por chorro para el próximo cobro anual."
-        breadcrumbs={[
-          { label: "Inicio", href: "/dashboard" },
-          { label: "Configuración" },
-        ]}
-      />
+    <PageStack>
+      <PageIntro description="Precio anual por chorro. El lugar de pago no se edita aquí." />
 
-      <Surface className="max-w-xl p-5 sm:p-6">
-        <form onSubmit={guardar} className="space-y-4">
+      <form onSubmit={guardar} className="max-w-xl space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="tarifa">Tarifa anual por chorro (Q)</Label>
+            <Label htmlFor="tarifa">Tarifa anual por chorro</Label>
             <Input
               id="tarifa"
               type="number"
               min="0.01"
               step="0.01"
+              className="font-mono"
               value={tarifa}
               onChange={(e) => setTarifa(e.target.value)}
               required
@@ -84,11 +78,11 @@ export default function ConfiguracionPage() {
               className="bg-muted text-muted-foreground"
             />
           </div>
-          <Button type="submit" className="w-full sm:w-auto" disabled={saving}>
-            {saving ? "Guardando…" : "Guardar tarifa"}
+          <Button type="submit" className="w-full rounded-full sm:w-auto" disabled={saving}>
+            <Save className="size-4" />
+            {saving ? "Guardando…" : "Guardar"}
           </Button>
         </form>
-      </Surface>
-    </div>
+    </PageStack>
   );
 }

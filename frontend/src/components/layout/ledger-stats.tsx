@@ -1,16 +1,17 @@
+import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type LedgerStat = {
   label: string;
   value: string | number;
+  hint?: string;
+  icon?: LucideIcon;
+  delta?: string;
+  href?: string;
 };
 
-/**
- * Tira de cifras: una sola hoja dividida por filetes, no cinco tarjetas
- * flotando. Los márgenes negativos dejan que los filetes del último borde
- * se salgan y los recorte el contenedor, así la retícula puede envolver en
- * móvil sin dibujar líneas sueltas.
- */
 export function LedgerStats({
   items,
   className,
@@ -21,23 +22,54 @@ export function LedgerStats({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md border border-border bg-card",
+        "grid gap-4 sm:grid-cols-2 xl:grid-cols-4",
         className,
       )}
     >
-      <dl className="-mr-px -mb-px grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-        {items.map((item) => (
-          <div
-            key={item.label}
-            className="min-w-0 border-r border-b border-border px-5 py-4"
-          >
-            <dt className="text-caption text-muted-foreground">{item.label}</dt>
-            <dd className="mt-1.5 truncate font-mono text-2xl leading-none font-semibold tracking-tight">
+      {items.map((item) => {
+        const Icon = item.icon ?? Info;
+        const card = (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                {item.label}
+              </p>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Icon className="size-4" />
+              </span>
+            </div>
+            <p className="mt-4 font-mono text-2xl font-semibold tracking-tight">
               {item.value}
-            </dd>
+            </p>
+            {item.hint || item.delta ? (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                {item.delta ? (
+                  <span className="mr-1 font-medium text-success">{item.delta}</span>
+                ) : null}
+                {item.hint}
+              </p>
+            ) : null}
+          </>
+        );
+        const classNameCard =
+          "rounded-2xl border border-border bg-card p-5 shadow-sm";
+        if (item.href) {
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={cn(classNameCard, "transition-ui hover:bg-muted/40 active:scale-[0.99]")}
+            >
+              {card}
+            </Link>
+          );
+        }
+        return (
+          <div key={item.label} className={classNameCard}>
+            {card}
           </div>
-        ))}
-      </dl>
+        );
+      })}
     </div>
   );
 }

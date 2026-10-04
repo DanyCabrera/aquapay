@@ -2,10 +2,10 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function ThemeToggle({
-  compact = false,
   className,
 }: {
   compact?: boolean;
@@ -23,15 +23,12 @@ export function ThemeToggle({
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={cn(
-        // Bordes y texto en currentColor: sirve igual sobre la barra oscura
-        // que sobre el fondo claro del login.
-        "inline-flex items-center justify-center rounded-md border border-current/25 text-[0.75rem] opacity-75 transition-ui hover:opacity-100",
-        compact ? "h-8 min-w-8 px-2" : "h-8 px-2.5",
+        "inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-ui hover:bg-muted hover:text-foreground active:scale-95",
         className,
       )}
       aria-label={isDark ? "Usar tema claro" : "Usar tema oscuro"}
     >
-      {compact ? (isDark ? "Claro" : "Oscuro") : isDark ? "Tema claro" : "Tema oscuro"}
+      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
   );
 }

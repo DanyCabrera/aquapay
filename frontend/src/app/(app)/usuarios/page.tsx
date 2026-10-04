@@ -2,17 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Eye, Pencil, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { UsuarioComunidad } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PageStack, PageIntro } from "@/components/layout/page-stack";
+import { formatDpi } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export default function UsuariosPage() {
@@ -78,50 +80,46 @@ export default function UsuariosPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1>Beneficiarios</h1>
-          <p className="mt-2 max-w-prose text-base text-muted-foreground">
-            {isAdmin
-              ? "Alta, edición y habilitación de hogares de Aldea Sibaná."
-              : "Consulta de hogares registrados. Solo lectura."}
-          </p>
-        </div>
-        {isAdmin && (
-          <Link href="/usuarios/nuevo">
-            <Button>
-              <Plus data-icon="inline-start" />
-              Nuevo beneficiario
-            </Button>
-          </Link>
-        )}
-      </div>
+    <PageStack>
+      <PageIntro
+        title="Beneficiarios"
+        description="Padrón de la aldea. Abra una ficha para ver o agregar vivienda y chorro."
+        action={
+          isAdmin ? (
+            <Link
+              href="/usuarios/nuevo"
+              className={cn(buttonVariants(), "rounded-full")}
+            >
+              <Plus className="size-4" />
+              Registrar
+            </Link>
+          ) : undefined
+        }
+      />
 
-      <div className="rounded-md border border-border bg-card">
-        <div className="border-b border-border p-5">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              cargar(q);
-            }}
-          >
+      <div>
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            cargar(q);
+          }}
+        >
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="h-10 border-border bg-background pl-9"
-                placeholder="Buscar por nombre o DPI..."
+                className="h-10 flex-1 rounded-full pl-10"
+                placeholder="Nombre o DPI"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 aria-label="Buscar beneficiarios"
               />
             </div>
-            <Button type="submit" variant="outline" className="h-10">
+            <Button type="submit" variant="outline" className="h-10 rounded-full">
+              <Search className="size-4" />
               Buscar
             </Button>
           </form>
-        </div>
 
         {loading ? (
           <div>
@@ -141,15 +139,11 @@ export default function UsuariosPage() {
           <div className="p-6">
             <EmptyState
               title="Sin beneficiarios"
-              description={
-                isAdmin
-                  ? "Registre el primer hogar. Después podrá emitir recibos."
-                  : "Todavía no hay beneficiarios en el padrón."
-              }
+              description="Registre a la persona; la vivienda y el chorro se anotan en el mismo alta."
               action={
                 isAdmin ? (
                   <Link href="/usuarios/nuevo">
-                    <Button>Registrar beneficiario</Button>
+                    <Button>Registrar</Button>
                   </Link>
                 ) : undefined
               }
@@ -157,16 +151,16 @@ export default function UsuariosPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="mt-2 overflow-hidden rounded-2xl border border-border">
+              <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40 text-caption font-medium text-muted-foreground">
-                    <th className="px-5 py-3">Nombre completo</th>
-                    <th className="px-5 py-3">DPI</th>
-                    <th className="px-5 py-3">Teléfono</th>
-                    <th className="px-5 py-3">Dirección</th>
-                    <th className="px-5 py-3">Estado</th>
-                    <th className="px-5 py-3 text-right">Acciones</th>
+                  <tr className="border-b border-border bg-muted/30 text-caption font-medium text-muted-foreground">
+                    <th className="px-5 py-3.5">Nombre</th>
+                    <th className="px-5 py-3.5">DPI</th>
+                    <th className="px-5 py-3.5">Teléfono</th>
+                    <th className="px-5 py-3.5">Dirección</th>
+                    <th className="px-5 py-3.5">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -176,9 +170,9 @@ export default function UsuariosPage() {
                     return (
                       <tr
                         key={u.id}
-                        className="border-b border-border transition-colors duration-150 last:border-b-0 hover:bg-muted/50"
+                        className="border-b border-border last:border-b-0 transition-ui hover:bg-muted/40"
                       >
-                        <td className="px-5 py-3">
+                        <td className="px-5 py-3.5">
                           <Link
                             href={`/usuarios/${u.id}`}
                             className="font-medium hover:underline"
@@ -186,22 +180,22 @@ export default function UsuariosPage() {
                             {u.nombreCompleto}
                           </Link>
                         </td>
-                        <td className="px-5 py-3 font-mono text-caption text-muted-foreground">
-                          {u.dpi}
+                        <td className="px-5 py-3.5 font-mono text-caption whitespace-nowrap text-muted-foreground">
+                          {formatDpi(u.dpi)}
                         </td>
-                        <td className="px-5 py-3 font-mono text-caption text-muted-foreground">
+                        <td className="px-5 py-3.5 font-mono text-caption whitespace-nowrap text-muted-foreground">
                           {u.telefono ?? "—"}
                         </td>
-                        <td className="max-w-[220px] truncate px-5 py-3 text-muted-foreground">
+                        <td className="max-w-[220px] truncate px-5 py-3.5 text-muted-foreground">
                           {direccion}
                         </td>
-                        <td className="px-5 py-3">
-                          {/* Una sola cosa por celda: el interruptor ya dice
-                              el estado y lo cambia. Insignia solo en lectura. */}
+                        <td className="px-5 py-3.5">
                           {isAdmin ? (
                             <Switch
                               checked={u.activo}
                               disabled={toggling === u.id}
+                              onLabel="Activo"
+                              offLabel="Inactivo"
                               aria-label={
                                 u.activo
                                   ? `Deshabilitar ${u.nombreCompleto}`
@@ -215,35 +209,14 @@ export default function UsuariosPage() {
                             />
                           )}
                         </td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            <Link
-                              href={`/usuarios/${u.id}`}
-                              className={cn(
-                                "inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-ui hover:bg-muted hover:text-foreground",
-                              )}
-                              aria-label={
-                                isAdmin
-                                  ? `Editar ${u.nombreCompleto}`
-                                  : `Ver ${u.nombreCompleto}`
-                              }
-                            >
-                              {isAdmin ? (
-                                <Pencil className="size-3.5" />
-                              ) : (
-                                <Eye className="size-3.5" />
-                              )}
-                            </Link>
-                          </div>
-                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
 
-            <div className="flex flex-col gap-3 border-t border-border px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-caption text-muted-foreground">
                 Mostrando {(page - 1) * pageSize + 1}-
                 {Math.min(page * pageSize, filtered.length)} de{" "}
@@ -253,8 +226,7 @@ export default function UsuariosPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="h-8"
+                  className="h-10"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
@@ -266,8 +238,7 @@ export default function UsuariosPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="h-8"
+                  className="h-10"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >
@@ -275,9 +246,10 @@ export default function UsuariosPage() {
                 </Button>
               </div>
             </div>
+            </div>
           </>
         )}
       </div>
-    </div>
+    </PageStack>
   );
 }

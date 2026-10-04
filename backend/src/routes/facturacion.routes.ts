@@ -105,6 +105,7 @@ router.get("/recibos", requireRoles("tesorero", "administrador"), async (req, re
     const data = await facturacionService.listarRecibos({
       q: req.query.q as string | undefined,
       limit: req.query.limit ? Number(req.query.limit) : undefined,
+      anio: req.query.anio ? Number(req.query.anio) : undefined,
     });
     res.json({ success: true, data });
   } catch (e) {

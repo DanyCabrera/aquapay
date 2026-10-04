@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Download, Wallet, Users, Home, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -23,8 +15,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader, Surface } from "@/components/layout/page-header";
-import { formatQuetzales } from "@/lib/format";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageStack, PageIntro } from "@/components/layout/page-stack";
 import { cn } from "@/lib/utils";
 
 type Tipo = "usuarios" | "viviendas" | "pagos" | "ingresos";
@@ -35,8 +27,6 @@ interface ReporteData {
   filas: string[][];
   serie?: { mes: number; total: number }[];
 }
-
-const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
 export default function ReportesPage() {
   const [tipo, setTipo] = useState<Tipo>("ingresos");
@@ -85,51 +75,49 @@ export default function ReportesPage() {
     }
   }
 
-  const chart = (data?.serie ?? []).map((r) => ({
-    name: meses[r.mes - 1],
-    total: r.total,
-  }));
-
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <PageStack>
+      <PageIntro
         title="Reportes"
-        description="Tablas de cobros y listados. Puede bajarlas en PDF."
-        breadcrumbs={[
-          { label: "Inicio", href: "/dashboard" },
-          { label: "Reportes" },
-        ]}
-        actions={
-          <Button variant="outline" onClick={exportarPdf}>
+        description="Cifras de toda la aldea. Para una persona, use Consultar pago."
+        action={
+          <Button type="button" variant="outline" className="rounded-full" onClick={exportarPdf}>
+            <Download className="size-4" />
             Exportar PDF
           </Button>
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {(
           [
-            ["ingresos", "Ingresos"],
-            ["pagos", "Pagos"],
-            ["usuarios", "Usuarios"],
-            ["viviendas", "Viviendas"],
+            ["ingresos", "Ingresos", Wallet],
+            ["pagos", "Recibos", Receipt],
+            ["usuarios", "Usuarios", Users],
+            ["viviendas", "Viviendas", Home],
           ] as const
-        ).map(([value, label]) => (
-          <Button
+        ).map(([value, label, Icon]) => (
+          <button
             key={value}
-            size="sm"
-            variant={tipo === value ? "default" : "outline"}
+            type="button"
+            className={cn(
+              "inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm transition-ui",
+              tipo === value
+                ? "bg-muted font-medium text-foreground"
+                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+            )}
             onClick={() => {
               setTipo(value);
               cargar(value, anio);
             }}
           >
+            <Icon className="size-3.5" />
             {label}
-          </Button>
+          </button>
         ))}
         {(tipo === "ingresos" || tipo === "pagos") && (
           <Input
-            className="h-8 w-24 text-[0.8rem]"
+            className="h-10 w-24 font-mono"
             type="number"
             value={anio}
             onChange={(e) => {
@@ -142,57 +130,25 @@ export default function ReportesPage() {
         )}
       </div>
 
-      {tipo === "ingresos" && chart.length > 0 && (
-        <Surface className="h-64 p-5">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chart}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="var(--border)"
-              />
-              <XAxis
-                dataKey="name"
-                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                axisLine={{ stroke: "var(--border)" }}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                cursor={{ fill: "var(--muted)" }}
-                contentStyle={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  color: "var(--foreground)",
-                }}
-                formatter={(v) => [formatQuetzales(Number(v)), "Total"]}
-              />
-              <Bar
-                dataKey="total"
-                fill="var(--chart-1)"
-                radius={[3, 3, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </Surface>
-      )}
-
-      {!loading && !data ? (
-        <EmptyState
-          title="Sin datos"
-          description="No hay información para este reporte."
-        />
-      ) : data ? (
-        <Surface className="overflow-hidden">
-          <div className="border-b border-border px-5 py-4">
-            <h2>{data.titulo}</h2>
-          </div>
-          <div className="overflow-x-auto">
+      {loading ? (
+        <div>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-6 border-b border-border py-3.5 last:border-b-0"
+            >
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="hidden h-4 w-28 sm:block" />
+            </div>
+          ))}
+        </div>
+      ) : !data ? (
+        <EmptyState title="Sin datos" />
+      ) : (
+        <div>
+          <h2 className="mb-3">{data.titulo}</h2>
+          <div className="overflow-hidden rounded-2xl border border-border">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -208,12 +164,12 @@ export default function ReportesPage() {
                       colSpan={data.columnas.length}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      Sin filas para mostrar
+                      Sin filas
                     </TableCell>
                   </TableRow>
                 ) : (
                   data.filas.map((fila, i) => (
-                    <TableRow key={i} className="transition-ui">
+                    <TableRow key={i}>
                       {fila.map((celda, j) => (
                         <TableCell
                           key={j}
@@ -231,8 +187,8 @@ export default function ReportesPage() {
               </TableBody>
             </Table>
           </div>
-        </Surface>
-      ) : null}
-    </div>
+        </div>
+      )}
+    </PageStack>
   );
 }

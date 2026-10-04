@@ -44,6 +44,7 @@ export interface Recibo {
   descripcionPago: string;
   lugarPago: string;
   fechaPago: string;
+  fechaCreacion?: string;
   tesorero?: UsuarioSistema;
   pdf?: {
     urlPublica?: string | null;
@@ -52,12 +53,21 @@ export interface Recibo {
   vivienda?: Vivienda & { usuario?: UsuarioComunidad };
 }
 
+export interface IngresosMes {
+  mes: number;
+  total: number;
+  tarifaAnual?: number;
+  compraChorro?: number;
+}
+
 export interface DashboardData {
   totalUsuarios: number;
   totalViviendas: number;
   totalChorros?: number;
   facturasMes: number;
   ingresosMes: number;
-  ingresosPorMes: { mes: number; total: number }[];
+  ingresosMesTarifa?: number;
+  ingresosMesChorro?: number;
+  ingresosPorMes: IngresosMes[];
   tarifaAnual: number;
 }
