@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { LoginDto, RegistroDto } from "../dto/auth.dto";
+import { LoginDto, RegistroDto, RestablecerPasswordDto } from "../dto/auth.dto";
 import { requireAuth } from "../middleware/auth";
 import { validateBody } from "../middleware/validate";
 import { authService } from "../services/auth.service";
@@ -35,6 +35,19 @@ router.post("/login", validateBody(LoginDto), async (req, res, next) => {
     next(e);
   }
 });
+
+router.post(
+  "/restablecer-password",
+  validateBody(RestablecerPasswordDto),
+  async (req, res, next) => {
+    try {
+      const data = await authService.restablecerPassword(req.body);
+      res.json({ success: true, data });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
 
 router.get("/me", requireAuth, async (req, res, next) => {
   try {

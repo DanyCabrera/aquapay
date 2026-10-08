@@ -1,10 +1,10 @@
 import bcrypt from "bcryptjs";
 import { AppDataSource } from "../database/data-source";
 import { Perfil } from "../entities/Perfil";
-import { LoginDto, RegistroDto } from "../dto/auth.dto";
+import { LoginDto, RegistroDto, RestablecerPasswordDto } from "../dto/auth.dto";
 import { normalizarDpi } from "../utils/dpi";
 import { signAccessToken } from "../utils/jwt";
-import { conflict, forbidden, unauthorized } from "../utils/errors";
+import { conflict, forbidden, notFound, unauthorized } from "../utils/errors";
 
 function toUsuario(perfil: Perfil) {
   return {
@@ -80,6 +80,18 @@ export class AuthService {
       expiresIn,
       usuario: toUsuario(perfil),
     };
+  }
+
+  async restablecerPassword(dto: RestablecerPasswordDto) {
+    const dpi = normalizarDpi(dto.dpi);
+    const perfil = await this.perfiles().findOne({ where: { dpi } });
+    if (!perfil || !perfil.activo) {
+      throw notFound("No hay una cuenta activa con ese DPI.");
+    }
+
+    perfil.passwordHash = await bcrypt.hash(dto.password, 12);
+    await this.perfiles().save(perfil);
+    return { ok: true };
   }
 
   async miPerfil(userId: string) {

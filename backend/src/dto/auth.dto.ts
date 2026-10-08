@@ -42,3 +42,16 @@ export class LoginDto {
   @MinLength(8)
   password!: string;
 }
+
+export class RestablecerPasswordDto {
+  @IsString()
+  @Matches(/^\d{13,20}$/, {
+    message: "El DPI debe tener entre 13 y 20 dígitos",
+  })
+  dpi!: string;
+
+  @IsString()
+  @MinLength(8, { message: "La contraseña debe tener al menos 8 caracteres" })
+  @MaxLength(72)
+  password!: string;
+}

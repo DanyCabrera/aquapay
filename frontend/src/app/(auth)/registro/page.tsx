@@ -298,7 +298,7 @@ export default function RegistroPage() {
                 disabled={loading}
                 aria-invalid={Boolean(termsError) || undefined}
                 aria-describedby={termsError ? termsErrorId : undefined}
-                className="mt-0.5 size-3.5 rounded border-border accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/40"
+                className="mt-0.5 size-3.5 rounded border-border accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/40"  // Cambiado a primary para que coincida con el color del botón
               />
               <span>
                 Acepto el tratamiento del DPI.
@@ -332,7 +332,7 @@ export default function RegistroPage() {
             href="/login"
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            Entrar
+            Iniciar Sesión
           </Link>
         </p>
       </div>
