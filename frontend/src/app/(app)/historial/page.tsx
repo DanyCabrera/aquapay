@@ -15,6 +15,11 @@ import { nativeSelectClass } from "@/components/layout/page-header";
 import { LedgerStats } from "@/components/layout/ledger-stats";
 import { formatDpi, formatFecha, formatQuetzales, formatRecibo } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  ReciboPdfViewer,
+  sourceFromRecibo,
+  type ReciboPdfSource,
+} from "@/components/facturacion/recibo-pdf-viewer";
 
 const ANIO_ACTUAL = new Date().getFullYear();
 const ANIOS = Array.from({ length: 12 }, (_, i) => ANIO_ACTUAL - i);
@@ -30,6 +35,7 @@ export default function HistorialTesoreroPage() {
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [pdfSource, setPdfSource] = useState<ReciboPdfSource | null>(null);
   const pageSize = 12;
   const hayFiltro = Boolean(consulta.q.trim() || consulta.anio);
 
@@ -235,18 +241,13 @@ export default function HistorialTesoreroPage() {
                         {formatQuetzales(r.totalPagado)}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        {r.pdf?.urlPublica ? (
-                          <a
-                            href={r.pdf.urlPublica}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-sm text-primary transition-ui hover:underline"
-                          >
-                            Abrir
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPdfSource(sourceFromRecibo(r))}
+                          className="text-sm text-primary transition-ui hover:underline"
+                        >
+                          Ver PDF
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -288,6 +289,7 @@ export default function HistorialTesoreroPage() {
           </>
         )}
       </div>
+      <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
   );
 }

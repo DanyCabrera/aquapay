@@ -4,8 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2, Receipt, Search } from "lucide-react";
 import { toast } from "sonner";
-import { api, ApiError, downloadBase64Pdf } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { Recibo, UsuarioComunidad, Vivienda } from "@/lib/types";
+import {
+  ReciboPdfViewer,
+  sourceFromRecibo,
+  type ReciboPdfSource,
+} from "@/components/facturacion/recibo-pdf-viewer";
 import { numeroALetras } from "@/lib/numero-a-letras";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +64,7 @@ export function EmitirFacturaForm() {
   const [numeroRecibo, setNumeroRecibo] = useState("—");
   const [loading, setLoading] = useState(false);
   const [recientes, setRecientes] = useState<Recibo[]>([]);
+  const [pdfSource, setPdfSource] = useState<ReciboPdfSource | null>(null);
 
   const usuariosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -226,20 +232,20 @@ export function EmitirFacturaForm() {
             };
 
       const data = await api<{
-        recibo: { numeroRecibo: string };
+        recibo: { id: string; numeroRecibo: string };
         pdf: {
           downloadBase64?: string;
           nombreArchivo: string;
-          urlPublica?: string;
         };
       }>(path, { method: "POST", body: JSON.stringify(body) });
 
       toast.success(`Recibo ${data.recibo.numeroRecibo} emitido`);
-      if (data.pdf.downloadBase64) {
-        downloadBase64Pdf(data.pdf.downloadBase64, data.pdf.nombreArchivo);
-      } else if (data.pdf.urlPublica) {
-        window.open(data.pdf.urlPublica, "_blank");
-      }
+      setPdfSource(
+        sourceFromRecibo(data.recibo, {
+          nombreArchivo: data.pdf.nombreArchivo,
+          base64: data.pdf.downloadBase64,
+        }),
+      );
 
       setUsuarioId("");
       setUsuario(null);
@@ -513,6 +519,7 @@ export function EmitirFacturaForm() {
                   <th className="py-3 pr-4 font-medium">Beneficiario</th>
                   <th className="py-3 pr-4 font-medium">Fecha</th>
                   <th className="py-3 font-medium">Monto</th>
+                  <th className="py-3 text-right font-medium">PDF</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -527,8 +534,17 @@ export function EmitirFacturaForm() {
                     <td className="py-3 pr-4 font-mono text-sm text-muted-foreground">
                       {formatFecha(r.fechaPago)}
                     </td>
-                    <td className="py-3 font-mono tabular-nums">
+                    <td className="py-3 pr-4 font-mono tabular-nums">
                       {formatQuetzales(r.totalPagado)}
+                    </td>
+                    <td className="py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setPdfSource(sourceFromRecibo(r))}
+                        className="text-sm text-primary transition-ui hover:underline"
+                      >
+                        Ver PDF
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -537,6 +553,7 @@ export function EmitirFacturaForm() {
           </div>
         )}
       </section>
+      <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
   );
 }

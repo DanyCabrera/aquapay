@@ -29,6 +29,11 @@ import {
   formatRecibo,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  ReciboPdfViewer,
+  sourceFromRecibo,
+  type ReciboPdfSource,
+} from "@/components/facturacion/recibo-pdf-viewer";
 
 const ANIO_ACTUAL = new Date().getFullYear();
 const ANIOS = Array.from({ length: 12 }, (_, i) => ANIO_ACTUAL - i);
@@ -105,6 +110,7 @@ function PagosConsulta() {
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [loading, setLoading] = useState(true);
   const [abierto, setAbierto] = useState<string | null>(null);
+  const [pdfSource, setPdfSource] = useState<ReciboPdfSource | null>(null);
 
   async function cargar(search = q, year = anio) {
     setLoading(true);
@@ -325,18 +331,13 @@ function PagosConsulta() {
                           {r.tesorero?.nombre ?? "—"}
                         </TableCell>
                         <TableCell>
-                          {r.pdf?.urlPublica ? (
-                            <a
-                              href={r.pdf.urlPublica}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-sm text-primary transition-ui hover:underline"
-                            >
-                              Abrir
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setPdfSource(sourceFromRecibo(r))}
+                            className="text-sm text-primary transition-ui hover:underline"
+                          >
+                            Ver PDF
+                          </button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -347,6 +348,7 @@ function PagosConsulta() {
           ) : null}
         </>
       )}
+      <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
   );
 }

@@ -41,6 +41,9 @@ export async function api<T>(
   }
 
   if (res.headers.get("content-type")?.includes("application/pdf")) {
+    if (!res.ok) {
+      throw new ApiError("No se pudo abrir el PDF del recibo.", res.status);
+    }
     const blob = await res.blob();
     return blob as T;
   }
@@ -52,9 +55,28 @@ export async function api<T>(
   return (json.data ?? json) as T;
 }
 
-export function downloadBase64Pdf(base64: string, filename: string) {
+export function fetchReciboPdf(reciboId: string) {
+  return api<Blob>(`/api/facturacion/recibos/${reciboId}/pdf`);
+}
+
+export function blobFromBase64Pdf(base64: string) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: "application/pdf" });
+}
+
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = `data:application/pdf;base64,${base64}`;
+  link.href = url;
   link.download = filename;
   link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function downloadBase64Pdf(base64: string, filename: string) {
+  downloadBlob(blobFromBase64Pdf(base64), filename);
 }
