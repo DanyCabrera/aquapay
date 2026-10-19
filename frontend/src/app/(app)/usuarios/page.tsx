@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Download, Droplets, House, Plus, Search, Trash2, Users, UserRoundCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -14,8 +14,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageStack, PageIntro } from "@/components/layout/page-stack";
-import { formatDpi } from "@/lib/format";
+import { formatDpi, formatFecha } from "@/lib/format";
+import { exportCsv } from "@/lib/export-csv";
 import { cn } from "@/lib/utils";
+import { UsuarioAccionDialog, type UsuarioAccionPendiente } from "@/components/usuarios/usuario-accion-dialog";
 
 export default function UsuariosPage() {
   const { user } = useAuth();
@@ -23,12 +25,16 @@ export default function UsuariosPage() {
   const [lista, setLista] = useState<UsuarioComunidad[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
-  const [toggling, setToggling] = useState<string | null>(null);
+  const [pendiente, setPendiente] = useState<UsuarioAccionPendiente | null>(null);
   const [page, setPage] = useState(1);
+  const [estado, setEstado] = useState("todos");
+  const [orden, setOrden] = useState("nombre");
+  const [error, setError] = useState<string | null>(null);
   const pageSize = 10;
 
   async function cargar(search?: string) {
     setLoading(true);
+    setError(null);
     try {
       const path = search?.trim()
         ? `/api/usuarios?q=${encodeURIComponent(search.trim())}`
@@ -36,6 +42,7 @@ export default function UsuariosPage() {
       setLista(await api<UsuarioComunidad[]>(path));
       setPage(1);
     } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo cargar el padrón.");
       toast.error(err instanceof ApiError ? err.message : "Error al cargar");
     } finally {
       setLoading(false);
@@ -46,36 +53,31 @@ export default function UsuariosPage() {
     cargar();
   }, []);
 
-  const filtered = useMemo(() => lista, [lista]);
+  const filtered = useMemo(() => {
+    const result = lista.filter((u) => estado === "todos" || (estado === "activos" ? u.activo : !u.activo));
+    return result.sort((a, b) => orden === "recientes" ? b.fechaRegistro.localeCompare(a.fechaRegistro) : orden === "nombre-desc" ? b.nombreCompleto.localeCompare(a.nombreCompleto) : a.nombreCompleto.localeCompare(b.nombreCompleto));
+  }, [lista, estado, orden]);
+  const viviendas = lista.flatMap((u) => u.viviendas ?? []);
+  const chorros = lista.filter((u) => u.activo).flatMap((u) => u.viviendas ?? []).filter((v) => v.activa).reduce((s, v) => s + (v.chorros ?? []).reduce((n, c) => n + (c.activo ? c.cantidad : 0), 0), 0);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  async function toggleActivo(usuario: UsuarioComunidad) {
+  async function confirmarAccion({ usuario, accion }: UsuarioAccionPendiente) {
     if (!isAdmin) return;
-    const next = !usuario.activo;
-    const ok = confirm(
-      next
-        ? `¿Habilitar a ${usuario.nombreCompleto}?`
-        : `¿Deshabilitar a ${usuario.nombreCompleto}? No podrá usarse en cobros nuevos.`,
-    );
-    if (!ok) return;
-
-    setToggling(usuario.id);
-    try {
+    if (accion === "eliminar") {
+      await api(`/api/usuarios/${usuario.id}`, { method: "DELETE" });
+      setLista((prev) => prev.filter((u) => u.id !== usuario.id));
+      setPage((actual) => Math.min(actual, Math.max(1, Math.ceil((filtered.length - 1) / pageSize))));
+      toast.success("Beneficiario eliminado");
+    } else {
       const updated = await api<UsuarioComunidad>(
-        `/api/usuarios/${usuario.id}/${next ? "activar" : "desactivar"}`,
+        `/api/usuarios/${usuario.id}/${accion}`,
         { method: "POST" },
       );
       setLista((prev) =>
         prev.map((u) => (u.id === usuario.id ? { ...u, ...updated } : u)),
       );
-      toast.success(next ? "Usuario habilitado" : "Usuario deshabilitado");
-    } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : "No se pudo actualizar el estado",
-      );
-    } finally {
-      setToggling(null);
+      toast.success(accion === "activar" ? "Beneficiario activado" : "Beneficiario desactivado");
     }
   }
 
@@ -83,23 +85,30 @@ export default function UsuariosPage() {
     <PageStack>
       <PageIntro
         title="Beneficiarios"
-        description="Padrón de la aldea. Abra una ficha para ver o agregar vivienda y chorro."
+        description="Cada hogar, su información en orden. Administre el padrón, las viviendas y las conexiones de agua de la comunidad."
         action={
           isAdmin ? (
-            <Link
+            <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => exportCsv("beneficiarios-aquapay.csv", ["Nombre", "DPI", "Teléfono", "Dirección", "Estado"], filtered.map((u) => [u.nombreCompleto, u.dpi, u.telefono ?? "", u.viviendas?.map((v) => v.direccion).join("; ") ?? "", u.activo ? "Activo" : "Inactivo"]))} disabled={loading || !filtered.length}><Download className="size-4" />Exportar CSV</Button><Link
               href="/usuarios/nuevo"
               className={cn(buttonVariants(), "rounded-full")}
             >
               <Plus className="size-4" />
               Registrar
-            </Link>
+            </Link></div>
           ) : undefined
         }
       />
-
-      <div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
+        { label: "Beneficiarios en la consulta", value: lista.length, icon: Users, color: "text-blue-600 bg-blue-500/10" },
+        { label: "Beneficiarios activos", value: lista.filter((u) => u.activo).length, icon: UserRoundCheck, color: "text-emerald-600 bg-emerald-500/10" },
+        { label: "Viviendas registradas", value: viviendas.length, icon: House, color: "text-violet-600 bg-violet-500/10" },
+        { label: "Chorros activos", value: chorros, icon: Droplets, color: "text-cyan-600 bg-cyan-500/10" },
+      ].map(({ label, value, icon: Icon, color }) => <div key={label} className="admin-surface flex items-center gap-4 p-4"><span className={cn("flex size-10 items-center justify-center rounded-xl", color)}><Icon className="size-5" /></span><div><p className="text-2xl font-semibold tabular-nums">{loading || error ? "—" : value}</p><p className="mt-1 text-[11px] text-muted-foreground">{label}</p></div></div>)}</div>
+      {error && <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">{error} <Button variant="outline" onClick={() => void cargar(q)}>Reintentar</Button></div>}
+      <div className="admin-surface overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 sm:px-5"><div className="flex flex-wrap gap-1 rounded-xl bg-muted/60 p-1">{[["todos", "Todos"], ["activos", "Activos"], ["inactivos", "Inactivos"]].map(([value, label]) => <button key={value} type="button" aria-pressed={estado === value} className={cn("rounded-lg px-4 py-2 text-xs font-medium transition-ui", estado === value ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")} onClick={() => { setEstado(value); setPage(1); }}>{label}</button>)}</div><select aria-label="Ordenar beneficiarios" value={orden} onChange={(e) => { setOrden(e.target.value); setPage(1); }} className="rounded-lg border border-border bg-card px-3 py-2 text-xs"><option value="nombre">Nombre: A–Z</option><option value="nombre-desc">Nombre: Z–A</option><option value="recientes">Más recientes</option></select></div>
         <form
-          className="flex gap-2"
+          className="flex gap-2 px-5 py-4"
           onSubmit={(e) => {
             e.preventDefault();
             cargar(q);
@@ -135,11 +144,11 @@ export default function UsuariosPage() {
               </div>
             ))}
           </div>
-        ) : pageItems.length === 0 ? (
+        ) : error ? null : pageItems.length === 0 ? (
           <div className="p-6">
             <EmptyState
-              title="Sin beneficiarios"
-              description="Registre a la persona; la vivienda y el chorro se anotan en el mismo alta."
+              title={q || estado !== "todos" ? "Sin coincidencias" : "Sin beneficiarios"}
+              description={q || estado !== "todos" ? "Pruebe otro nombre, DPI o filtro de estado." : "Registre a la persona; la vivienda y el chorro se anotan en el mismo alta."}
               action={
                 isAdmin ? (
                   <Link href="/usuarios/nuevo">
@@ -151,7 +160,7 @@ export default function UsuariosPage() {
           </div>
         ) : (
           <>
-            <div className="mt-2 overflow-hidden rounded-2xl border border-border">
+            <div className="overflow-hidden">
               <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead>
@@ -161,6 +170,7 @@ export default function UsuariosPage() {
                     <th className="px-5 py-3.5">Teléfono</th>
                     <th className="px-5 py-3.5">Dirección</th>
                     <th className="px-5 py-3.5">Estado</th>
+                    {isAdmin && <th className="px-5 py-3.5 text-right">Acciones</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -172,13 +182,14 @@ export default function UsuariosPage() {
                         key={u.id}
                         className="border-b border-border last:border-b-0 transition-ui hover:bg-muted/40"
                       >
-                        <td className="px-5 py-3.5">
-                          <Link
+                        <td className="min-w-60 px-5 py-3.5">
+                          <div className="flex items-center gap-3"><span className="hidden size-9 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-[11px] font-semibold text-primary sm:flex">{u.nombreCompleto.split(" ").slice(0, 2).map((n) => n[0]).join("")}</span><div><Link
                             href={`/usuarios/${u.id}`}
                             className="font-medium hover:underline"
                           >
                             {u.nombreCompleto}
                           </Link>
+                          <p className="mt-1 text-[10px] text-muted-foreground">Desde {formatFecha(u.fechaRegistro)}</p></div></div>
                         </td>
                         <td className="px-5 py-3.5 font-mono text-caption whitespace-nowrap text-muted-foreground">
                           {formatDpi(u.dpi)}
@@ -187,13 +198,12 @@ export default function UsuariosPage() {
                           {u.telefono ?? "—"}
                         </td>
                         <td className="max-w-[220px] truncate px-5 py-3.5 text-muted-foreground">
-                          {direccion}
+                          <span title={direccion}>{direccion}</span><p className="mt-1 text-[10px] text-muted-foreground">{u.viviendas?.length ?? 0} viviendas · {(u.viviendas ?? []).reduce((s, v) => s + (v.chorros ?? []).reduce((n, c) => n + c.cantidad, 0), 0)} chorros</p>
                         </td>
                         <td className="px-5 py-3.5">
                           {isAdmin ? (
-                            <Switch
+                            <div className="flex items-center gap-2"><Switch
                               checked={u.activo}
-                              disabled={toggling === u.id}
                               onLabel="Activo"
                               offLabel="Inactivo"
                               aria-label={
@@ -201,14 +211,23 @@ export default function UsuariosPage() {
                                   ? `Deshabilitar ${u.nombreCompleto}`
                                   : `Habilitar ${u.nombreCompleto}`
                               }
-                              onCheckedChange={() => toggleActivo(u)}
+                              onCheckedChange={() => setPendiente({ usuario: u, accion: u.activo ? "desactivar" : "activar" })}
                             />
+                            <span className={cn("text-[10px] font-medium", u.activo ? "text-emerald-600" : "text-muted-foreground")}>{u.activo ? "Activo" : "Inactivo"}</span></div>
                           ) : (
                             <StatusBadge
                               status={u.activo ? "activo" : "inactivo"}
                             />
                           )}
                         </td>
+                        {isAdmin && (
+                          <td className="px-5 py-3.5 text-right">
+                            <Button variant="destructive" size="sm" aria-label={`Eliminar ${u.nombreCompleto}`} onClick={() => setPendiente({ usuario: u, accion: "eliminar" })}>
+                              <Trash2 className="size-4" aria-hidden />
+                              Eliminar
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -250,6 +269,7 @@ export default function UsuariosPage() {
           </>
         )}
       </div>
+      <UsuarioAccionDialog pendiente={pendiente} onClose={() => setPendiente(null)} onConfirm={confirmarAccion} />
     </PageStack>
   );
 }

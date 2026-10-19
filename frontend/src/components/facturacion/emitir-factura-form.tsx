@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2, Receipt, Search } from "lucide-react";
+import { CheckCircle2, House, Loader2, Receipt, Search, ShieldCheck } from "lucide-react";
+import { ReceiptList } from "@/components/tesorero/receipt-list";
+import { FixedPaymentSummary } from "./fixed-payment-summary";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import type { Recibo, UsuarioComunidad, Vivienda } from "@/lib/types";
@@ -45,7 +47,7 @@ interface Pendientes {
 type TipoCobro = "tarifa" | "compra";
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Guatemala", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
 export function EmitirFacturaForm() {
@@ -61,10 +63,18 @@ export function EmitirFacturaForm() {
   const [anioCancelar, setAnioCancelar] = useState(String(anioActual));
   const [chorroCompraId, setChorroCompraId] = useState("");
   const [fechaPago, setFechaPago] = useState(todayIso());
+  const [descripcionPago, setDescripcionPago] = useState("");
   const [numeroRecibo, setNumeroRecibo] = useState("—");
   const [loading, setLoading] = useState(false);
   const [recientes, setRecientes] = useState<Recibo[]>([]);
   const [pdfSource, setPdfSource] = useState<ReciboPdfSource | null>(null);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(true);
+  const [loadingPendientes, setLoadingPendientes] = useState(false);
+  const [errorUsuarios, setErrorUsuarios] = useState("");
+  const [errorPendientes, setErrorPendientes] = useState("");
+  const [errorRecientes, setErrorRecientes] = useState(false);
+  const [loadingRecientes, setLoadingRecientes] = useState(true);
+  const seleccion = useRef(0);
 
   const usuariosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -73,11 +83,12 @@ export function EmitirFacturaForm() {
     return activos.filter(
       (u) =>
         u.nombreCompleto.toLowerCase().includes(q) ||
-        u.dpi.includes(q.replace(/\D/g, "")),
+        (/^[\d\s-]+$/.test(q) && u.dpi.includes(q.replace(/\D/g, ""))),
     );
   }, [usuarios, busqueda]);
 
   async function cargarSiguienteYRecientes() {
+    setLoadingRecientes(true);
     const [siguiente, lista] = await Promise.allSettled([
       api<{ numeroRecibo: string; anioRecibo: number }>(
         "/api/facturacion/siguiente-recibo",
@@ -88,19 +99,26 @@ export function EmitirFacturaForm() {
       setNumeroRecibo(
         `${siguiente.value.anioRecibo}-${siguiente.value.numeroRecibo}`,
       );
-    }
+    } else setNumeroRecibo("—");
     if (lista.status === "fulfilled") setRecientes(lista.value);
+    setErrorRecientes(lista.status === "rejected");
+    setLoadingRecientes(false);
   }
 
-  useEffect(() => {
-    api<UsuarioComunidad[]>("/api/usuarios")
-      .then(setUsuarios)
-      .catch(() => toast.error("No se pudieron cargar beneficiarios"));
-    cargarSiguienteYRecientes().catch(() => undefined);
-  }, []);
+  async function cargarUsuarios() {
+    setLoadingUsuarios(true); setErrorUsuarios("");
+    try { setUsuarios(await api<UsuarioComunidad[]>("/api/usuarios")); }
+    catch { setErrorUsuarios("No se pudieron cargar los beneficiarios. Revisa la conexión e inténtalo de nuevo."); }
+    finally { setLoadingUsuarios(false); }
+  }
+  useEffect(() => { void cargarUsuarios(); void cargarSiguienteYRecientes(); }, []);
 
   async function cargarPendientes(id: string) {
+    const request = ++seleccion.current;
+    setPendientes(null); setLoadingPendientes(true); setErrorPendientes("");
+    try {
     const data = await api<Pendientes>(`/api/facturacion/pendientes/${id}`);
+    if (request !== seleccion.current) return;
     setPendientes(data);
     const ordenados = [...data.aniosPendientes].sort((a, b) => a - b);
     setAnioCancelar(String(ordenados[0] ?? anioActual));
@@ -110,10 +128,15 @@ export function EmitirFacturaForm() {
         (c) => c.activo && Number(c.precioCompra) > 0,
       );
     setChorroCompraId(chorros[0]?.id ?? "");
+    } catch (e) {
+      if (request === seleccion.current) setErrorPendientes(e instanceof Error ? e.message : "No se pudo consultar la deuda.");
+    } finally { if (request === seleccion.current) setLoadingPendientes(false); }
   }
 
   async function onSelectUsuario(id: string) {
     setUsuarioId(id);
+    seleccion.current++;
+    setPendientes(null); setUsuario(null); setViviendaId(""); setChorroCompraId(""); setErrorPendientes(""); setLoadingPendientes(false);
     if (!id) {
       setUsuario(null);
       setViviendaId("");
@@ -122,18 +145,17 @@ export function EmitirFacturaForm() {
       return;
     }
     try {
-      const u =
-        usuarios.find((x) => x.id === id) ??
-        (await api<UsuarioComunidad>(`/api/usuarios/${id}`));
+      const u = usuarios.find((x) => x.id === id);
+      if (!u) return;
       setUsuario(u);
-      const primera = u.viviendas?.find((v) => v.activa) ?? u.viviendas?.[0];
+      const primera = u.viviendas?.find((v) => v.activa);
       if (primera) {
         setViviendaId(primera.id);
         await cargarPendientes(primera.id);
       } else {
         setViviendaId("");
         setPendientes(null);
-        toast.error("Este beneficiario no tiene vivienda registrada");
+        setErrorPendientes("Este beneficiario no tiene una vivienda activa. Solicita al administrador que revise su registro.");
       }
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Error");
@@ -182,7 +204,7 @@ export function EmitirFacturaForm() {
   const letras = total > 0 ? numeroALetras(total) : "";
 
   const anioError =
-    tipo === "tarifa" && usuarioId
+    tipo === "tarifa" && pendientes
       ? !Number.isInteger(anioNum)
         ? "Ingrese un año válido."
         : anioNum < 2000 || anioNum > anioActual
@@ -198,18 +220,20 @@ export function EmitirFacturaForm() {
     Boolean(viviendaId) &&
     total > 0 &&
     !loading &&
+    !loadingPendientes && Boolean(fechaPago) && Boolean(pendientes) &&
     (tipo === "tarifa" ? !anioError && aniosAPagar.length > 0 : Boolean(chorroCompraId));
 
   async function guardar() {
     if (!canSubmit) return;
     setLoading(true);
     try {
-      const descripcion =
+      const descripcionAutomatica =
         tipo === "tarifa"
           ? aniosAPagar.length === 1
             ? `Pago tarifa anual ${aniosAPagar[0]} — ${cantidadChorros} chorro(s)`
             : `Pago tarifa anual ${Math.min(...aniosAPagar)} a ${Math.max(...aniosAPagar)} — ${cantidadChorros} chorro(s)`
           : `Compra de chorro — ${chorroSeleccionado?.cantidad ?? 0} unidad(es)`;
+      const descripcion = descripcionPago.trim() || descripcionAutomatica;
 
       const path =
         tipo === "tarifa"
@@ -253,6 +277,7 @@ export function EmitirFacturaForm() {
       setPendientes(null);
       setBusqueda("");
       setFechaPago(todayIso());
+      setDescripcionPago("");
       await cargarSiguienteYRecientes();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Error al guardar");
@@ -264,11 +289,12 @@ export function EmitirFacturaForm() {
   return (
     <PageStack>
       <PageIntro
-        title="Emitir"
+        title="Emitir recibo"
+        description=""
         action={
-          <p className="text-right">
+          <p className="text-right flex flex-col items-end gap-0 fixed right-15 top-30">
             <span className="block text-caption text-muted-foreground">
-              Siguiente
+              Correlativo
             </span>
             <span className="font-mono text-[1.75rem] font-medium tabular-nums leading-none text-primary">
               {formatRecibo(numeroRecibo === "—" ? "" : numeroRecibo)}
@@ -277,7 +303,12 @@ export function EmitirFacturaForm() {
         }
       />
 
-      <div className="space-y-6">
+      <fieldset disabled={loading} className="contents"><div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
+      <div className="space-y-5 min-w-0">
+      <section className="admin-surface overflow-hidden">
+        <div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 01</p><h2>Beneficiario y vivienda</h2></div><House className="size-5 text-primary" /></div>
+      <div className="space-y-6 p-5 sm:p-6">
+          {errorUsuarios && <div role="alert" className="space-y-3 text-sm text-destructive"><p>{errorUsuarios}</p><Button variant="outline" onClick={() => void cargarUsuarios()}>Reintentar</Button></div>}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="buscar">Beneficiario</Label>
@@ -288,26 +319,30 @@ export function EmitirFacturaForm() {
                   className="h-10 rounded-full pl-10"
                   placeholder="Nombre o DPI"
                   value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
+                  onChange={(e) => { setBusqueda(e.target.value); if (usuarioId) void onSelectUsuario(""); }}
                 />
               </div>
               <select
+                aria-label="Beneficiario"
                 className={cn(nativeSelectClass, "mt-2 h-10")}
                 value={usuarioId}
+                disabled={loadingUsuarios || loading}
                 onChange={(e) => onSelectUsuario(e.target.value)}
               >
-                <option value="">Beneficiario</option>
+                <option value="">{loadingUsuarios ? "Cargando beneficiarios…" : "Seleccionar beneficiario"}</option>
                 {usuariosFiltrados.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.nombreCompleto} — {formatDpi(u.dpi)}
                   </option>
                 ))}
               </select>
+              {!loadingUsuarios && !errorUsuarios && <p className="text-xs text-muted-foreground" aria-live="polite">{usuariosFiltrados.length} beneficiarios activos encontrados{busqueda ? ` para «${busqueda}»` : ""}.</p>}
             </div>
 
             <div className="space-y-1.5">
-              <Label>Nombre</Label>
+              <Label htmlFor="beneficiario-nombre">Nombre</Label>
               <Input
+                id="beneficiario-nombre"
                 className="h-10"
                 value={usuario?.nombreCompleto ?? ""}
                 readOnly
@@ -315,8 +350,9 @@ export function EmitirFacturaForm() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>DPI</Label>
+              <Label htmlFor="beneficiario-dpi">DPI</Label>
               <Input
+                id="beneficiario-dpi"
                 className="h-10 font-mono"
                 value={usuario ? formatDpi(usuario.dpi, "") : ""}
                 readOnly
@@ -326,16 +362,18 @@ export function EmitirFacturaForm() {
 
             {(usuario?.viviendas?.length ?? 0) > 1 ? (
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Dirección / vivienda</Label>
+                <Label htmlFor="vivienda-select">Dirección / vivienda</Label>
                 <select
+                  id="vivienda-select"
                   className={cn(nativeSelectClass, "h-10")}
                   value={viviendaId}
+                  aria-label="Dirección / vivienda"
                   onChange={async (e) => {
                     setViviendaId(e.target.value);
                     await cargarPendientes(e.target.value);
                   }}
                 >
-                  {(usuario?.viviendas ?? []).map((v) => (
+                  {(usuario?.viviendas ?? []).filter((v) => v.activa).map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.direccion}
                     </option>
@@ -344,8 +382,9 @@ export function EmitirFacturaForm() {
               </div>
             ) : (
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Dirección</Label>
+                <Label htmlFor="vivienda-direccion">Dirección</Label>
                 <Input
+                  id="vivienda-direccion"
                   className="h-10"
                   value={vivienda?.direccion ?? ""}
                   readOnly
@@ -355,8 +394,9 @@ export function EmitirFacturaForm() {
             )}
 
             <div className="space-y-1.5">
-              <Label>Cantidad de chorros</Label>
+              <Label htmlFor="cantidad-chorros">Cantidad de chorros</Label>
               <Input
+                id="cantidad-chorros"
                 className="h-10 tabular-nums"
                 value={usuario ? String(cantidadChorros) : ""}
                 readOnly
@@ -365,12 +405,24 @@ export function EmitirFacturaForm() {
             </div>
           </div>
 
+          {loadingPendientes && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />Consultando los pendientes de la vivienda…</p>}
+          {errorPendientes && <div role="alert" className="space-y-3 rounded-xl bg-destructive/5 p-4 text-sm text-destructive"><p>{errorPendientes}</p>{viviendaId && <Button variant="outline" onClick={() => void cargarPendientes(viviendaId)}>Reintentar consulta</Button>}</div>}
+          {!usuarioId && <p className="rounded-xl bg-muted/50 p-4 text-xs leading-relaxed text-muted-foreground">Busca por nombre o DPI. Solo se muestran beneficiarios activos; los pendientes se consultan por vivienda.</p>}
+      </div></section>
+      <section className="admin-surface overflow-hidden"><div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 02</p><h2>Concepto y fecha de pago</h2></div><Receipt className="size-5 text-primary" /></div><div className="space-y-6 p-5 sm:p-6">
           <div className="space-y-2">
             <Label>Tipo de pago</Label>
             <div
               className="flex flex-wrap gap-x-8 gap-y-1"
               role="radiogroup"
               aria-label="Tipo de pago"
+              onKeyDown={(e) => {
+                if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+                e.preventDefault();
+                const next = tipo === "tarifa" ? "compra" : "tarifa";
+                setTipo(next);
+                e.currentTarget.querySelectorAll<HTMLButtonElement>("button")[next === "tarifa" ? 0 : 1]?.focus();
+              }}
             >
               <TipoPagoCard
                 selected={tipo === "tarifa"}
@@ -432,13 +484,14 @@ export function EmitirFacturaForm() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Chorro a cobrar</Label>
+                <Label htmlFor="chorro-compra">Chorro a cobrar</Label>
                 {chorrosCompra.length === 0 ? (
                   <p className="py-2.5 text-sm text-muted-foreground">
                     {usuarioId ? "Sin compra pendiente." : "Elija un beneficiario."}
                   </p>
                 ) : (
                   <select
+                    id="chorro-compra"
                     className={cn(nativeSelectClass, "h-10")}
                     value={chorroCompraId}
                     onChange={(e) => setChorroCompraId(e.target.value)}
@@ -464,22 +517,31 @@ export function EmitirFacturaForm() {
             </div>
           )}
 
-          <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="descripcion-pago">Descripción <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+            <textarea id="descripcion-pago" rows={4} maxLength={500} value={descripcionPago} onChange={(e) => setDescripcionPago(e.target.value)} placeholder="Escribe una observación o detalle del pago…" aria-describedby="descripcion-pago-ayuda" className="w-full min-w-0 resize-y rounded-xl border border-input bg-background px-3 py-3 text-sm outline-none transition-ui placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50" />
+            <div id="descripcion-pago-ayuda" className="flex flex-wrap justify-between gap-2 text-[11px] text-muted-foreground"><p>Se incluirá en el recibo. Si la dejas vacía, se usará la descripción automática del cobro.</p><span className="shrink-0 tabular-nums">{descripcionPago.length}/500</span></div>
+          </div>
+      </div></section>
+      </div>
+      <FixedPaymentSummary><div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 03</p><h2>Resumen del cobro</h2></div><ShieldCheck className="size-5 text-primary" /></div><div className="space-y-5 p-5 sm:p-6">
+          <dl className="space-y-4 text-xs"><div><dt className="text-muted-foreground">Beneficiario</dt><dd className="mt-1 break-words font-semibold">{usuario?.nombreCompleto || "Por seleccionar"}</dd></div><div><dt className="text-muted-foreground">Vivienda</dt><dd className="mt-1 break-words leading-relaxed">{vivienda?.direccion || "Por seleccionar"}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Concepto</dt><dd>{tipo === "tarifa" ? "Tarifa anual" : "Compra de chorro"}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Fecha</dt><dd>{formatFecha(fechaPago)}</dd></div>{tipo === "tarifa" && aniosAPagar.length > 0 && <div><dt className="text-muted-foreground">Años incluidos</dt><dd className="mt-1 break-words">{aniosAPagar.join(", ")}</dd></div>}</dl>
+          <div className="grid gap-4 border-t border-border pt-4">
             <div className="space-y-1.5">
               <Label>Total a pagar</Label>
-              <p className="flex h-12 items-center font-mono text-xl tabular-nums">
+              <p className="flex h-12 items-center text-3xl font-semibold tracking-tight tabular-nums" aria-live="polite">
                 {formatQuetzales(total)}
               </p>
             </div>
             <div className="space-y-1.5">
               <Label>Cantidad en letras</Label>
-              <Input className="h-12" value={letras || "—"} readOnly />
+              <p className="text-xs leading-relaxed text-muted-foreground">{letras || "El monto se calculará al elegir un pendiente."}</p>
             </div>
           </div>
 
           <div className="flex justify-end">
             <Button
-              className="h-11 min-w-44 rounded-full md:h-10"
+              className="h-12 w-full"
               disabled={!canSubmit}
               onClick={guardar}
             >
@@ -496,62 +558,12 @@ export function EmitirFacturaForm() {
               )}
             </Button>
           </div>
-      </div>
+          <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />Revisa los datos y confirma que recibiste el pago. Al emitir se registra el cobro y se genera su PDF. La numeración final se asigna al guardar.</p>
+      </div></FixedPaymentSummary></div></fieldset>
 
-      <section>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <h2>Últimos recibos</h2>
-          <Link
-            href="/historial"
-            className="text-caption text-primary transition-ui hover:underline"
-          >
-            Historial
-          </Link>
-        </div>
-        {recientes.length === 0 ? (
-          <p className="mt-3 text-caption text-muted-foreground">Sin recibos.</p>
-        ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-130 text-left text-base">
-              <thead className="border-b border-border text-sm text-muted-foreground">
-                <tr>
-                  <th className="py-3 pr-4 font-medium">Recibo</th>
-                  <th className="py-3 pr-4 font-medium">Beneficiario</th>
-                  <th className="py-3 pr-4 font-medium">Fecha</th>
-                  <th className="py-3 font-medium">Monto</th>
-                  <th className="py-3 text-right font-medium">PDF</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {recientes.map((r) => (
-                  <tr key={r.id}>
-                    <td className="py-3 pr-4 font-mono tabular-nums text-primary">
-                      {formatRecibo(r.numeroRecibo)}
-                    </td>
-                    <td className="max-w-55 truncate py-3 pr-4">
-                      {r.vivienda?.usuario?.nombreCompleto ?? "—"}
-                    </td>
-                    <td className="py-3 pr-4 font-mono text-sm text-muted-foreground">
-                      {formatFecha(r.fechaPago)}
-                    </td>
-                    <td className="py-3 pr-4 font-mono tabular-nums">
-                      {formatQuetzales(r.totalPagado)}
-                    </td>
-                    <td className="py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setPdfSource(sourceFromRecibo(r))}
-                        className="text-sm text-primary transition-ui hover:underline"
-                      >
-                        Ver PDF
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <section className="admin-surface w-[62%]"> 
+        <div className="admin-surface-header"><div><h2>Últimos recibos</h2><p className="mt-1 text-xs text-muted-foreground">Consulta los comprobantes emitidos recientemente.</p></div><Link href="/historial" className="text-xs font-medium text-primary">Ver historial</Link></div>
+        {loadingRecientes ? <p role="status" className="p-6 text-sm text-muted-foreground">Cargando recibos recientes…</p> : errorRecientes ? <div role="alert" className="space-y-3 p-6"><p className="text-sm text-muted-foreground">No se pudieron consultar los recibos recientes.</p><Button variant="outline" onClick={() => void cargarSiguienteYRecientes()}>Reintentar</Button></div> : recientes.length ? <ReceiptList recibos={recientes} onOpen={(r) => setPdfSource(sourceFromRecibo(r))} /> : <div className="p-6"><p className="text-sm font-medium">Aquí aparecerán tus comprobantes</p><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Después de emitir un cobro, podrás abrir su PDF desde esta lista o desde el historial.</p></div>}
       </section>
       <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
@@ -572,6 +584,7 @@ function TipoPagoCard({
       type="button"
       role="radio"
       aria-checked={selected}
+      tabIndex={selected ? 0 : -1}
       onClick={onSelect}
       className={cn(
         "min-h-10 rounded-full border px-4 py-2.5 text-left text-sm font-medium transition-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",

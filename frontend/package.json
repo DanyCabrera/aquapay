@@ -6,7 +6,12 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:admin": "cypress run --e2e --browser electron --spec cypress/e2e/admin.cy.ts",
+    "cypress:open": "cypress open --e2e",
+    "cypress:typecheck": "tsc --project cypress/tsconfig.json",
+    "test:e2e:tesorero": "cypress run --e2e --browser electron --spec cypress/e2e/tesorero.cy.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -26,10 +31,12 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.43",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cypress": "^16.2.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.23",
     "tailwindcss": "^4",

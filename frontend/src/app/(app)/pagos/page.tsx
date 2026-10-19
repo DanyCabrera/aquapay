@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { ArrowRight, FileText, Receipt, Search, ShieldCheck, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import type { Recibo } from "@/lib/types";
@@ -109,21 +109,28 @@ function PagosConsulta() {
   const [anio, setAnio] = useState(String(ANIO_ACTUAL));
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
   const [pdfSource, setPdfSource] = useState<ReciboPdfSource | null>(null);
+  const consultaRef = useRef(0);
 
   async function cargar(search = q, year = anio) {
+    const consulta = ++consultaRef.current;
     setLoading(true);
+    setError(null);
     try {
       const qs = new URLSearchParams({ limit: "500" });
       if (search.trim()) qs.set("q", search.trim());
       if (year) qs.set("anio", year);
-      setRecibos(await api<Recibo[]>(`/api/facturacion/recibos?${qs}`));
+      const result = await api<Recibo[]>(`/api/facturacion/recibos?${qs}`);
+      if (consulta === consultaRef.current) setRecibos(result);
     } catch (err) {
+      if (consulta !== consultaRef.current) return;
       setRecibos([]);
+      setError(err instanceof ApiError ? err.message : "No se pudieron cargar los pagos.");
       toast.error(err instanceof ApiError ? err.message : "No se pudieron cargar los pagos");
     } finally {
-      setLoading(false);
+      if (consulta === consultaRef.current) setLoading(false);
     }
   }
 
@@ -151,11 +158,16 @@ function PagosConsulta() {
 
   return (
     <PageStack>
-      <PageIntro description="Quienes ya pagaron en la aldea. Filtre por nombre, DPI o año." />
+      <PageIntro title="Consulta de pagos" description="Revise los pagos de la comunidad, encuentre un beneficiario y consulte sus recibos. Toda la información proviene de cobros registrados por tesorería." />
+      <div className="grid gap-4 sm:grid-cols-3">{[
+        { label: "Personas con pago", value: formatEntero(pagadores.length), icon: Users, color: "text-blue-600 bg-blue-500/10" },
+        { label: "Recibos en la consulta", value: formatEntero(recibos.length), icon: Receipt, color: "text-violet-600 bg-violet-500/10" },
+        { label: "Importe consultado", value: formatQuetzales(recibos.reduce((s, r) => s + Number(r.totalPagado), 0)), icon: Wallet, color: "text-emerald-600 bg-emerald-500/10" },
+      ].map(({ label, value, icon: Icon, color }) => <div key={label} className="admin-surface flex items-center gap-4 p-5"><span className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", color)}><Icon className="size-5" /></span><div><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums">{loading || error ? "—" : value}</p></div></div>)}</div>
 
       <form
         onSubmit={onBuscar}
-        className="grid gap-2 sm:grid-cols-[1fr_140px_auto]"
+        className="admin-surface grid items-center gap-3 p-5 sm:grid-cols-[1fr_140px_auto_auto]"
       >
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -188,6 +200,7 @@ function PagosConsulta() {
           <Search className="size-4" />
           Buscar
         </Button>
+        <Button type="button" variant="ghost" disabled={!q && anio === String(ANIO_ACTUAL)} onClick={() => { setQ(""); setAnio(String(ANIO_ACTUAL)); setAbierto(null); void cargar("", String(ANIO_ACTUAL)); }}>Limpiar</Button>
       </form>
 
       {loading ? (
@@ -203,15 +216,17 @@ function PagosConsulta() {
             </div>
           ))}
         </div>
-      ) : pagadores.length === 0 ? (
-        <EmptyState
+      ) : error ? <div role="alert" className="admin-surface p-6 text-sm text-destructive">{error}<Button variant="outline" className="ml-3" onClick={() => void cargar()}>Reintentar</Button></div> : pagadores.length === 0 ? (
+        <div className="admin-surface grid items-start gap-6 p-6 lg:grid-cols-[1.2fr_1fr]"><EmptyState
+          className="py-3"
           title={q.trim() ? "Nadie coincide con esa búsqueda" : "Nadie ha pagado aún"}
           description={
             q.trim()
               ? "Pruebe otro nombre, DPI o año."
-              : "Cuando el tesorero emita un recibo, la persona aparecerá aquí."
+              : "El padrón ya está disponible para gestionar el servicio. Los pagos aparecerán cuando tesorería registre los primeros cobros."
           }
-        />
+          action={<Link href="/usuarios" className="inline-flex items-center gap-2 text-sm font-medium text-primary">Ver beneficiarios <ArrowRight className="size-4" /></Link>}
+        /><div className="rounded-xl bg-muted/40 p-5"><div className="mb-4 flex items-center gap-2 text-sm font-semibold"><FileText className="size-4 text-primary" />Cómo consultar un pago</div><ol className="space-y-4">{["Escriba el nombre o DPI del beneficiario.", "Seleccione el año que necesita revisar.", "Abra los recibos encontrados para consultar su PDF."].map((paso, i) => <li key={paso} className="flex gap-3 text-xs leading-relaxed text-muted-foreground"><span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-card font-semibold text-primary">{i + 1}</span>{paso}</li>)}</ol></div></div>
       ) : (
         <>
           <p className="text-caption text-muted-foreground">
@@ -348,6 +363,7 @@ function PagosConsulta() {
           ) : null}
         </>
       )}
+      <p className="flex items-center gap-2 text-[11px] text-muted-foreground"><ShieldCheck className="size-4 shrink-0" />Consulta de administrador. La emisión y el registro de cobros corresponden a tesorería.</p>
       <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
   );

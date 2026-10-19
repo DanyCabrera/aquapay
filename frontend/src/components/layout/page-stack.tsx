@@ -32,6 +32,7 @@ export function PageBackLink({
 }
 
 export function PageIntro({
+  title,
   description,
   action,
 }: {
@@ -39,14 +40,10 @@ export function PageIntro({
   description?: string;
   action?: ReactNode;
 }) {
-  if (!description && !action) return null;
+  if (!title && !description && !action) return null;
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      {description ? (
-        <p className="max-w-xl text-sm text-muted-foreground">{description}</p>
-      ) : (
-        <span />
-      )}
+    <div className="admin-module-intro flex flex-wrap items-start justify-between gap-4">
+      <div>{title && <h2 className="mb-2 text-2xl font-semibold tracking-tight">{title}</h2>}{description && <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>}</div>
       {action ? (
         <div className="flex flex-wrap items-center justify-end gap-2">{action}</div>
       ) : null}

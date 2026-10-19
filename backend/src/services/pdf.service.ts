@@ -110,16 +110,28 @@ export class PdfService {
       color: gris,
     });
     y -= 16;
-    page.drawText(data.recibo.descripcionPago, {
-      x: 56,
-      y,
-      size: 10,
-      font,
-      color: negro,
-      maxWidth: 500,
+    // Ajustar también la altura para las descripciones escritas por tesorería.
+    const descripcionLineas: string[] = [];
+    let descripcionLinea = "";
+    for (const palabra of data.recibo.descripcionPago.trim().split(/\s+/)) {
+      if (descripcionLinea && font.widthOfTextAtSize(`${descripcionLinea} ${palabra}`, 10) > 500) {
+        descripcionLineas.push(descripcionLinea);
+        descripcionLinea = "";
+      }
+      if (descripcionLinea) descripcionLinea += " ";
+      for (const caracter of palabra) {
+        if (font.widthOfTextAtSize(descripcionLinea + caracter, 10) > 500) {
+          descripcionLineas.push(descripcionLinea.trimEnd());
+          descripcionLinea = "";
+        }
+        descripcionLinea += caracter;
+      }
+    }
+    if (descripcionLinea) descripcionLineas.push(descripcionLinea.trim());
+    descripcionLineas.forEach((linea, index) => {
+      page.drawText(linea, { x: 56, y: y - index * 14, size: 10, font, color: negro });
     });
-
-    y -= 40;
+    y -= Math.max(40, descripcionLineas.length * 14 + 28);
     page.drawRectangle({
       x: 40,
       y: y - 20,

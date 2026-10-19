@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { PageBackLink } from "@/components/layout/page-stack";
+import { Check, Droplets, House, UserRound } from "lucide-react";
 import { PRECIO_CHORRO_UNITARIO } from "@/lib/navigation";
 import { formatQuetzales } from "@/lib/format";
 
@@ -33,16 +34,16 @@ export default function NuevoBeneficiarioPage() {
   });
   const [vivienda, setVivienda] = useState({
     direccion: "",
-    anioInicioCobro: new Date().getFullYear(),
+    anioInicioCobro: String(new Date().getFullYear()),
     activa: true,
   });
   const [instalacion, setInstalacion] = useState({
-    cantidad: 1,
+    cantidad: "1",
     fechaInstalacion: new Date().toISOString().slice(0, 10),
   });
 
   const stepMeta = STEPS[paso - 1];
-  const totalCompra = instalacion.cantidad * PRECIO_CHORRO_UNITARIO;
+  const totalCompra = Number(instalacion.cantidad) * PRECIO_CHORRO_UNITARIO;
 
   async function submitPaso1(e: FormEvent) {
     e.preventDefault();
@@ -90,7 +91,7 @@ export default function NuevoBeneficiarioPage() {
           body: JSON.stringify({
             direccion: vivienda.direccion,
             activa: vivienda.activa,
-            anioInicioCobro: vivienda.anioInicioCobro,
+            anioInicioCobro: Number(vivienda.anioInicioCobro),
           }),
         });
       } else {
@@ -98,7 +99,7 @@ export default function NuevoBeneficiarioPage() {
           method: "POST",
           body: JSON.stringify({
             direccion: vivienda.direccion,
-            anioInicioCobro: vivienda.anioInicioCobro,
+            anioInicioCobro: Number(vivienda.anioInicioCobro),
           }),
         });
         setViviendaId(created.id);
@@ -129,7 +130,7 @@ export default function NuevoBeneficiarioPage() {
       await api(`/api/usuarios/viviendas/${viviendaId}/chorros`, {
         method: "POST",
         body: JSON.stringify({
-          cantidad: instalacion.cantidad,
+          cantidad: Number(instalacion.cantidad),
           precioCompra: totalCompra,
           fechaInstalacion: instalacion.fechaInstalacion,
         }),
@@ -144,14 +145,13 @@ export default function NuevoBeneficiarioPage() {
   }
 
   return (
-    <div className="max-w-xl">
-      <div className="mb-8 space-y-3">
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-6 space-y-3">
         <PageBackLink href="/usuarios">Volver a beneficiarios</PageBackLink>
-        <p className="text-caption text-muted-foreground">
-          {paso} / 3 · {stepMeta.label}
-        </p>
+        <div><p className="admin-kicker mb-2">Registro de comunidad</p><h2 className="text-2xl font-semibold tracking-tight">Un nuevo hogar conectado</h2><p className="mt-2 text-sm text-muted-foreground">Complete la información de la persona, su vivienda y la instalación del servicio.</p></div>
       </div>
-
+      <div className="mb-6 grid grid-cols-3 gap-2">{STEPS.map((step) => <div key={step.id} aria-current={paso === step.id ? "step" : undefined} className={`flex items-center gap-2 rounded-xl border p-3 text-xs ${paso === step.id ? "border-primary/40 bg-primary/5 text-primary" : "border-border bg-card text-muted-foreground"}`}><span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${paso >= step.id ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{paso > step.id ? <Check className="size-3.5" /> : step.id}</span><span className="font-medium">{step.label}</span></div>)}</div>
+      <div className="grid items-start gap-5 lg:grid-cols-[1.6fr_1fr]"><section className="admin-surface p-6 sm:p-7"><div className="mb-6 border-b border-border pb-5"><p className="admin-kicker">Paso {paso} de 3</p><h2 className="mt-2 text-lg">{paso === 1 ? "Datos del beneficiario" : paso === 2 ? "Información de la vivienda" : "Instalación del chorro"}</h2></div>
       {paso === 1 && (
         <form
           onSubmit={submitPaso1}
@@ -169,6 +169,7 @@ export default function NuevoBeneficiarioPage() {
               }
               required
               minLength={3}
+              maxLength={200}
             />
           </div>
 
@@ -196,6 +197,8 @@ export default function NuevoBeneficiarioPage() {
               <Label htmlFor="tel">Teléfono</Label>
               <Input
                 id="tel"
+                type="tel"
+                maxLength={30}
                 className="h-10 font-mono"
                 placeholder="+502 #### ####"
                 value={personal.telefono}
@@ -240,6 +243,7 @@ export default function NuevoBeneficiarioPage() {
               }
               required
               minLength={3}
+              maxLength={300}
             />
           </div>
 
@@ -257,7 +261,7 @@ export default function NuevoBeneficiarioPage() {
               onChange={(e) =>
                 setVivienda({
                   ...vivienda,
-                  anioInicioCobro: Number(e.target.value),
+                  anioInicioCobro: e.target.value,
                 })
               }
               required
@@ -311,7 +315,7 @@ export default function NuevoBeneficiarioPage() {
                 onChange={(e) =>
                   setInstalacion({
                     ...instalacion,
-                    cantidad: Math.max(1, Number(e.target.value) || 1),
+                    cantidad: e.target.value,
                   })
                 }
                 required
@@ -370,6 +374,6 @@ export default function NuevoBeneficiarioPage() {
           </div>
         </form>
       )}
-    </div>
+      </section><aside className="admin-module-help"><span className="mb-4 flex size-10 items-center justify-center rounded-xl bg-primary/5 text-primary">{paso === 1 ? <UserRound className="size-5" /> : paso === 2 ? <House className="size-5" /> : <Droplets className="size-5" />}</span><h3>{stepMeta.label}: información importante</h3><p className="mt-3 text-xs leading-relaxed text-muted-foreground">{paso === 1 ? "Escriba el nombre completo y revise los 13 dígitos del DPI. El teléfono facilita el contacto con la familia." : paso === 2 ? "Use una dirección precisa para identificar la vivienda. El año de inicio define desde cuándo corresponde revisar el servicio anual." : "Revise la cantidad de chorros y la fecha de instalación. La compra del chorro se registra por separado de la tarifa anual."}</p><div className="mt-5 border-t border-border pt-4"><p className="admin-kicker">Comunidad</p><p className="mt-2 text-xs font-medium">Aldea Sibaná</p><p className="mt-1 text-[11px] text-muted-foreground">El Asintal, Retalhuleu</p></div></aside></div></div>
   );
 }

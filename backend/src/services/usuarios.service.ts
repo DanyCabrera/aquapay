@@ -1,8 +1,9 @@
-import { ILike } from "typeorm";
+import { ILike, In, QueryFailedError } from "typeorm";
 import { AppDataSource } from "../database/data-source";
 import { UsuarioComunidad } from "../entities/UsuarioComunidad";
 import { Vivienda } from "../entities/Vivienda";
 import { Chorro } from "../entities/Chorro";
+import { Recibo } from "../entities/Recibo";
 import {
   ActualizarUsuarioDto,
   CrearUsuarioDto,
@@ -30,11 +31,11 @@ export class UsuariosService {
     }
 
     const term = q.trim();
-    const dpi = normalizarDpi(term);
+    const dpi = /^[\d\s-]+$/.test(term) ? normalizarDpi(term) : "";
 
     return this.usuarios().find({
       where: [
-        { dpi: ILike(`%${dpi}%`) },
+        ...(dpi ? [{ dpi: ILike(`%${dpi}%`) }] : []),
         { nombreCompleto: ILike(`%${term}%`) },
       ],
       order: { nombreCompleto: "ASC" },
@@ -94,6 +95,38 @@ export class UsuariosService {
 
   async activar(id: string) {
     return this.actualizar(id, { activo: true });
+  }
+
+  async eliminar(id: string) {
+    try {
+      return await AppDataSource.transaction(async (manager) => {
+        const usuarios = manager.getRepository(UsuarioComunidad);
+        const usuario = await usuarios.findOne({
+          where: { id },
+          lock: { mode: "pessimistic_write" },
+        });
+        if (!usuario) throw notFound("Usuario no encontrado");
+
+        const viviendas = await manager.getRepository(Vivienda).findBy({ usuarioId: id });
+        const viviendaIds = viviendas.map((vivienda) => vivienda.id);
+        if (viviendaIds.length) {
+          const tieneRecibos = await manager.getRepository(Recibo).existsBy({ viviendaId: In(viviendaIds) });
+          if (tieneRecibos) {
+            throw conflict("Este beneficiario tiene recibos asociados y no se puede eliminar. Puede desactivarlo para conservar su historial.");
+          }
+          await manager.getRepository(Chorro).delete({ viviendaId: In(viviendaIds) });
+          await manager.getRepository(Vivienda).delete({ usuarioId: id });
+        }
+        await usuarios.delete(id);
+        return { id, eliminado: true };
+      });
+    } catch (err) {
+      // Una referencia creada mientras se elimina también debe conservarse.
+      if (err instanceof QueryFailedError && err.driverError?.code === "23503") {
+        throw conflict("Este beneficiario tiene pagos o registros asociados y no se puede eliminar. Puede desactivarlo para conservar su historial.");
+      }
+      throw err;
+    }
   }
 
   async crearVivienda(usuarioId: string, dto: CrearViviendaDto) {

@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import type { UsuarioSistema } from "./types";
 
 const TOKEN_KEY = "aquapay_token";
@@ -17,6 +17,14 @@ const REMEMBER_KEY = "aquapay_remember";
 
 function readStore(remember: boolean) {
   return remember ? localStorage : sessionStorage;
+}
+
+function clearStoredSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem("aquapay_mfa_ok");
 }
 
 interface AuthState {
@@ -40,16 +48,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const remember = localStorage.getItem(REMEMBER_KEY) !== "0";
-    const store = readStore(remember);
-    const t = store.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
-    const u = store.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY);
-    if (t && u) {
-      setToken(t);
-      setUser(JSON.parse(u));
+    let cancelled = false;
+
+    async function restore() {
+      const remember = localStorage.getItem(REMEMBER_KEY) !== "0";
+      const store = readStore(remember);
+      const t = store.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
+      if (!t) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
+      try {
+        const data = await api<UsuarioSistema>("/api/auth/me");
+        if (cancelled) return;
+        setToken(t);
+        setUser(data);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 401) {
+          clearStoredSession();
+          setToken(null);
+          setUser(null);
+        } else {
+          const raw = store.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY);
+          if (raw) {
+            try {
+              setToken(t);
+              setUser(JSON.parse(raw) as UsuarioSistema);
+            } catch {
+              clearStoredSession();
+            }
+          }
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-    sessionStorage.removeItem("aquapay_mfa_ok");
-    setLoading(false);
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function onUnauthorized() {
+      setToken(null);
+      setUser(null);
+      setLoading(false);
+    }
+    window.addEventListener("aquapay:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("aquapay:unauthorized", onUnauthorized);
   }, []);
 
   const setSession = useCallback(
@@ -86,11 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(USER_KEY);
-    sessionStorage.removeItem("aquapay_mfa_ok");
+    clearStoredSession();
     setToken(null);
     setUser(null);
   }, []);

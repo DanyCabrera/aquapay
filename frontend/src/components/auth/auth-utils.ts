@@ -25,15 +25,15 @@ export function getPasswordStrength(password: string): PasswordStrength {
   return "fuerte";
 }
 
-// Campos: 44px en táctil, 40px en escritorio. Foco = borde entintado + halo corto.
+// Campos cómodos en pantallas táctiles y consistentes con los paneles.
 export const authFieldClass =
-  "h-11 rounded-xl border-border bg-muted/50 px-3 text-sm transition-ui md:h-10 " +
+  "h-12 rounded-xl border-border bg-background px-3.5 text-sm transition-ui md:h-12 " +
   "placeholder:text-muted-foreground " +
   "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25 " +
   "aria-invalid:border-destructive " +
   "disabled:cursor-not-allowed disabled:opacity-50";
 
 export const authSubmitClass =
-  "h-11 w-full rounded-full bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-ui md:h-10 " +
+  "h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-ui md:h-12 " +
   "hover:bg-[color-mix(in_oklch,var(--primary),black_8%)] " +
   "disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground";

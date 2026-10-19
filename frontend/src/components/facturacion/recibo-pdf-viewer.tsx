@@ -65,6 +65,7 @@ export function ReciboPdfViewer({
 
   useEffect(() => {
     if (!source) return;
+    const pdfSource = source;
 
     let cancelled = false;
     let objectUrl: string | null = null;
@@ -75,9 +76,9 @@ export function ReciboPdfViewer({
       setBlob(null);
       setUrl(null);
       try {
-        const pdf = source.base64
-          ? blobFromBase64Pdf(source.base64)
-          : await fetchReciboPdf(source.reciboId);
+        const pdf = pdfSource.base64
+          ? blobFromBase64Pdf(pdfSource.base64)
+          : await fetchReciboPdf(pdfSource.reciboId);
         if (cancelled) return;
         objectUrl = URL.createObjectURL(pdf);
         setBlob(pdf);

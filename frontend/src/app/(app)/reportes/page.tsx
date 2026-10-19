@@ -1,194 +1,74 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Download, Wallet, Users, Home, Receipt } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BarChart3, ChevronLeft, ChevronRight, Download, FileSpreadsheet, House, Receipt, Search, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, downloadBlob } from "@/lib/api";
+import { exportCsv } from "@/lib/export-csv";
+import { formatQuetzales } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageStack, PageIntro } from "@/components/layout/page-stack";
 import { cn } from "@/lib/utils";
 
 type Tipo = "usuarios" | "viviendas" | "pagos" | "ingresos";
-
-interface ReporteData {
-  titulo: string;
-  columnas: string[];
-  filas: string[][];
-  serie?: { mes: number; total: number }[];
-}
-
+interface ReporteData { titulo: string; columnas: string[]; filas: string[][]; serie?: { mes: number; total: number }[]; }
+const REPORTES = [
+  { value: "usuarios" as const, label: "Usuarios", hint: "Padrón de beneficiarios", icon: Users, color: "text-blue-600 bg-blue-500/10" },
+  { value: "viviendas" as const, label: "Viviendas", hint: "Hogares y conexiones", icon: House, color: "text-violet-600 bg-violet-500/10" },
+  { value: "pagos" as const, label: "Recibos", hint: "Pagos registrados por año", icon: Receipt, color: "text-cyan-600 bg-cyan-500/10" },
+  { value: "ingresos" as const, label: "Ingresos", hint: "Recaudación mensual", icon: Wallet, color: "text-emerald-600 bg-emerald-500/10" },
+];
 export default function ReportesPage() {
-  const [tipo, setTipo] = useState<Tipo>("ingresos");
+  const [tipo, setTipo] = useState<Tipo>("usuarios");
   const [anio, setAnio] = useState(new Date().getFullYear());
+  const [anioInput, setAnioInput] = useState(String(anio));
   const [data, setData] = useState<ReporteData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  async function cargar(t = tipo, a = anio) {
-    setLoading(true);
-    try {
-      const q = t === "usuarios" || t === "viviendas" ? "" : `?anio=${a}`;
-      setData(await api<ReporteData>(`/api/reportes/${t}${q}`));
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  const [exportando, setExportando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const anual = tipo === "pagos" || tipo === "ingresos";
   useEffect(() => {
-    cargar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+    let cancelled = false;
+    setLoading(true); setData(null); setError(null); setPage(1); setQ("");
+    const query = tipo === "usuarios" || tipo === "viviendas" ? "" : `?anio=${anio}`;
+    api<ReporteData>(`/api/reportes/${tipo}${query}`).then((result) => { if (!cancelled) setData(result); }).catch((err) => { if (!cancelled) setError(err instanceof ApiError ? err.message : "No se pudo cargar el reporte."); }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [tipo, anio, revision]);
+  const filtered = useMemo(() => (data?.filas ?? []).filter((fila) => fila.some((value) => String(value).toLocaleLowerCase().includes(q.trim().toLocaleLowerCase()))), [data, q]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / 12));
+  const importe = data ? data.filas.reduce((n, fila) => n + Number((fila[tipo === "ingresos" ? 2 : 4] ?? "").replace(/[^\d.-]/g, "")), 0) : 0;
   async function exportarPdf() {
+    if (loading || !data || exportando) return;
+    setExportando(true);
     try {
-      const token =
-        sessionStorage.getItem("aquapay_token") ??
-        localStorage.getItem("aquapay_token");
-      const q =
-        tipo === "usuarios" || tipo === "viviendas" ? "" : `?anio=${anio}`;
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/reportes/${tipo}/pdf${q}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) throw new Error("No se pudo exportar");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `reporte-${tipo}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Error al exportar PDF");
-    }
+      const query = anual ? `?anio=${anio}` : "";
+      const blob = await api<Blob>(`/api/reportes/${tipo}/pdf${query}`);
+      downloadBlob(blob, `reporte-${tipo}.pdf`);
+      toast.success("Reporte PDF descargado");
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : "No se pudo exportar el PDF."); }
+    finally { setExportando(false); }
   }
-
   return (
     <PageStack>
-      <PageIntro
-        title="Reportes"
-        description="Cifras de toda la aldea. Para una persona, use Consultar pago."
-        action={
-          <Button type="button" variant="outline" className="rounded-full" onClick={exportarPdf}>
-            <Download className="size-4" />
-            Exportar PDF
-          </Button>
-        }
-      />
-
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        {(
-          [
-            ["ingresos", "Ingresos", Wallet],
-            ["pagos", "Recibos", Receipt],
-            ["usuarios", "Usuarios", Users],
-            ["viviendas", "Viviendas", Home],
-          ] as const
-        ).map(([value, label, Icon]) => (
-          <button
-            key={value}
-            type="button"
-            className={cn(
-              "inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm transition-ui",
-              tipo === value
-                ? "bg-muted font-medium text-foreground"
-                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-            )}
-            onClick={() => {
-              setTipo(value);
-              cargar(value, anio);
-            }}
-          >
-            <Icon className="size-3.5" />
-            {label}
-          </button>
-        ))}
-        {(tipo === "ingresos" || tipo === "pagos") && (
-          <Input
-            className="h-10 w-24 font-mono"
-            type="number"
-            value={anio}
-            onChange={(e) => {
-              const a = Number(e.target.value);
-              setAnio(a);
-              cargar(tipo, a);
-            }}
-            aria-label="Año del reporte"
-          />
-        )}
-      </div>
-
-      {loading ? (
-        <div>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-6 border-b border-border py-3.5 last:border-b-0"
-            >
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="hidden h-4 w-28 sm:block" />
-            </div>
-          ))}
-        </div>
-      ) : !data ? (
-        <EmptyState title="Sin datos" />
-      ) : (
-        <div>
-          <h2 className="mb-3">{data.titulo}</h2>
-          <div className="overflow-hidden rounded-2xl border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  {data.columnas.map((c) => (
-                    <TableHead key={c}>{c}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.filas.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={data.columnas.length}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      Sin filas
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  data.filas.map((fila, i) => (
-                    <TableRow key={i}>
-                      {fila.map((celda, j) => (
-                        <TableCell
-                          key={j}
-                          className={cn(
-                            j === 0 ? "font-medium" : "text-muted-foreground",
-                            "font-mono text-caption tabular-nums",
-                          )}
-                        >
-                          {celda}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
+      <PageIntro title="Centro de reportes" description="Convierta la información de la comunidad en decisiones. Consulte el padrón, las viviendas y los movimientos, y descargue sus reportes." action={<div className="flex flex-wrap gap-2"><Button variant="outline" disabled={loading || !data || !filtered.length} onClick={() => data && exportCsv(`reporte-${tipo}.csv`, data.columnas, filtered)}><FileSpreadsheet className="size-4" />Exportar CSV</Button><Button disabled={loading || !data || exportando} onClick={() => void exportarPdf()}><Download className="size-4" />{exportando ? "Exportando…" : "Exportar PDF"}</Button></div>} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{REPORTES.map(({ value, label, hint, icon: Icon, color }) => <button key={value} type="button" aria-pressed={tipo === value} onClick={() => setTipo(value)} className={cn("admin-surface flex items-center gap-3 p-5 text-left transition-ui hover:border-primary/40", tipo === value && "border-primary/60 ring-2 ring-primary/10")}><span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", color)}><Icon className="size-5" /></span><span><span className="block text-sm font-semibold">{label}</span><span className="mt-1 block text-[11px] text-muted-foreground">{hint}</span></span></button>)}</div>
+      <section className="admin-surface overflow-hidden">
+        <div className="admin-surface-header"><div><h2>{data?.titulo ?? "Preparando reporte"}</h2><p className="mt-1 text-xs text-muted-foreground">{anual ? `Período del 1 de enero al 31 de diciembre de ${anio}` : "Todos los registros de la comunidad"}</p></div>{anual && <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); setAnio(Number(anioInput)); }}><Input className="h-10 w-24" type="number" min="2000" max="2100" required value={anioInput} onChange={(e) => setAnioInput(e.target.value)} aria-label="Año del reporte" /><Button variant="outline" size="sm" type="submit">Aplicar año</Button></form>}</div>
+        {loading ? <div className="space-y-5 p-6">{Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div> : error ? <div role="alert" className="p-6 text-sm text-destructive">{error}<Button variant="outline" className="ml-3" onClick={() => setRevision((n) => n + 1)}>Reintentar</Button></div> : data && <>
+          <div className="grid gap-5 border-b border-border bg-muted/20 px-6 py-5 sm:grid-cols-3"><div><p className="admin-kicker">Registros</p><p className="mt-2 text-2xl font-semibold tabular-nums">{data.filas.length}</p></div><div><p className="admin-kicker">{anual ? "Importe registrado" : "Estado de los registros"}</p><p className="mt-2 text-2xl font-semibold tabular-nums">{anual ? formatQuetzales(importe) : `${data.filas.filter((f) => f[f.length - 1] === "Activo" || f[f.length - 1] === "Activa").length} activos`}</p></div><div><p className="admin-kicker">Disponible para descargar</p><div className="mt-3 flex gap-2"><span className="rounded-md border border-border bg-card px-2 py-1 text-[10px] font-semibold">PDF</span><span className="rounded-md border border-border bg-card px-2 py-1 text-[10px] font-semibold">CSV · Excel</span></div></div></div>
+          <div className="relative m-5"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} className="max-w-md pl-9" aria-label="Buscar en el reporte" placeholder="Buscar dentro de este reporte…" /></div>
+          <Table><TableHeader><TableRow className="bg-muted/30 hover:bg-muted/30">{data.columnas.map((c) => <TableHead key={c} className="px-6">{c}</TableHead>)}</TableRow></TableHeader><TableBody>{filtered.length ? filtered.slice((page - 1) * 12, page * 12).map((fila, i) => <TableRow key={i}>{fila.map((celda, j) => <TableCell key={j} className={cn("px-6 text-xs", j === 0 ? "font-medium" : "text-muted-foreground")}>{celda === "Activo" || celda === "Activa" ? <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-emerald-600">{celda}</span> : celda === "Inactivo" || celda === "Inactiva" ? <span className="rounded-full bg-muted px-2.5 py-1 text-[10px]">{celda}</span> : celda}</TableCell>)}</TableRow>) : <TableRow><TableCell colSpan={data.columnas.length}><EmptyState className="items-center px-5 text-center" title={q ? "Sin coincidencias en el reporte" : "Sin movimientos en este período"} description={q ? "Cambie el texto de búsqueda para ver otros registros." : "Los cobros registrados por tesorería aparecerán aquí. Puede elegir otro año o consultar el padrón de usuarios."} action={!q ? <Button variant="outline" onClick={() => setTipo("usuarios")}>Ver padrón de usuarios</Button> : undefined} /></TableCell></TableRow>}</TableBody></Table>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4"><p className="text-[11px] text-muted-foreground">{filtered.length ? `${(page - 1) * 12 + 1}–${Math.min(page * 12, filtered.length)}` : "0"} de {filtered.length} registros</p><div className="flex items-center gap-3"><Button variant="outline" size="icon-sm" aria-label="Página anterior del reporte" disabled={page <= 1} onClick={() => setPage((n) => n - 1)}><ChevronLeft className="size-4" /></Button><span className="text-xs text-muted-foreground">{page} / {totalPages}</span><Button variant="outline" size="icon-sm" aria-label="Página siguiente del reporte" disabled={page >= totalPages} onClick={() => setPage((n) => n + 1)}><ChevronRight className="size-4" /></Button></div></div>
+        </>}
+      </section>
+      <div className="flex items-start gap-3 rounded-xl border border-primary/10 bg-primary/5 px-5 py-4"><BarChart3 className="mt-0.5 size-5 shrink-0 text-primary" /><div><p className="text-xs font-semibold">Información que puede compartir</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">El PDF incluye el reporte completo. La descarga CSV conserva los resultados de su búsqueda y puede abrirse en Excel.</p></div></div>
     </PageStack>
   );
 }

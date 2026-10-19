@@ -77,7 +77,7 @@ router.delete(
   requireRoles("administrador"),
   async (req, res, next) => {
     try {
-      const data = await usuariosService.desactivar(req.params.id);
+      const data = await usuariosService.eliminar(req.params.id);
       res.json({ success: true, data });
     } catch (e) {
       next(e);

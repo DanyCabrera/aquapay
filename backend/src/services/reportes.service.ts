@@ -32,7 +32,7 @@ export class ReportesService {
           filas: viviendas.map((v) => [
             v.usuario?.nombreCompleto ?? "—",
             v.direccion,
-            String((v.chorros ?? []).filter((c) => c.activo).length),
+            String((v.chorros ?? []).filter((c) => c.activo).reduce((total, c) => total + c.cantidad, 0)),
             v.activa ? "Activa" : "Inactiva",
           ]),
           columnas: ["Usuario", "Dirección", "Chorros", "Estado"],

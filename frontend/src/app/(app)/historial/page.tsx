@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Droplets, FileText, Filter, Plus, Search, Wallet } from "lucide-react";
-import { toast } from "sonner";
-import { api, ApiError } from "@/lib/api";
+import { Download, Droplets, FileText, Filter, Plus, Search, Wallet } from "lucide-react";
+import { api } from "@/lib/api";
 import type { Recibo } from "@/lib/types";
+import { exportCsv } from "@/lib/export-csv";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,283 +13,73 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageStack, PageIntro } from "@/components/layout/page-stack";
 import { nativeSelectClass } from "@/components/layout/page-header";
 import { LedgerStats } from "@/components/layout/ledger-stats";
-import { formatDpi, formatFecha, formatQuetzales, formatRecibo } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import {
-  ReciboPdfViewer,
-  sourceFromRecibo,
-  type ReciboPdfSource,
-} from "@/components/facturacion/recibo-pdf-viewer";
+import { formatQuetzales } from "@/lib/format";
+import { ReceiptList } from "@/components/tesorero/receipt-list";
+import { ReciboPdfViewer, sourceFromRecibo, type ReciboPdfSource } from "@/components/facturacion/recibo-pdf-viewer";
 
 const ANIO_ACTUAL = new Date().getFullYear();
-const ANIOS = Array.from({ length: 12 }, (_, i) => ANIO_ACTUAL - i);
-
-function etiquetaTipo(tipo: Recibo["tipoCobro"]) {
-  return tipo === "tarifa_anual" ? "Tarifa anual" : "Compra chorro";
-}
+const ANIOS = Array.from({ length: ANIO_ACTUAL - 1999 }, (_, i) => ANIO_ACTUAL - i);
 
 export default function HistorialTesoreroPage() {
   const [q, setQ] = useState("");
   const [anio, setAnio] = useState("");
+  const [tipo, setTipo] = useState("");
   const [consulta, setConsulta] = useState({ q: "", anio: "" });
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [pdfSource, setPdfSource] = useState<ReciboPdfSource | null>(null);
+  const [pdf, setPdf] = useState<ReciboPdfSource | null>(null);
+  const requestId = useRef(0);
   const pageSize = 12;
-  const hayFiltro = Boolean(consulta.q.trim() || consulta.anio);
+  const hayFiltro = Boolean(consulta.q.trim() || consulta.anio || tipo);
 
-  async function cargar(search = q, year = anio) {
-    setLoading(true);
+  async function cargar(search: string, year: string) {
+    const id = ++requestId.current;
+    setLoading(true); setError("");
     try {
       const params = new URLSearchParams({ limit: "500" });
       if (search.trim()) params.set("q", search.trim());
       if (year) params.set("anio", year);
-      setRecibos(await api<Recibo[]>(`/api/facturacion/recibos?${params}`));
-      setConsulta({ q: search, anio: year });
-      setPage(1);
-    } catch (err) {
-      setRecibos([]);
-      setConsulta({ q: search, anio: year });
-      toast.error(
-        err instanceof ApiError ? err.message : "No se pudo cargar el historial",
-      );
-    } finally {
-      setLoading(false);
-    }
+      const lista = await api<Recibo[]>(`/api/facturacion/recibos?${params}`);
+      if (id !== requestId.current) return;
+      setRecibos(lista); setConsulta({ q: search, anio: year }); setPage(1);
+    } catch (e) {
+      if (id !== requestId.current) return;
+      setError(e instanceof Error ? e.message : "No se pudo cargar el historial.");
+    } finally { if (id === requestId.current) setLoading(false); }
   }
-
-  useEffect(() => {
-    cargar("", "");
-    // Solo carga inicial: filtros se aplican al buscar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function onBuscar(e: FormEvent) {
-    e.preventDefault();
-    cargar(q, anio);
+  useEffect(() => { void cargar("", ""); }, []);
+  function buscar(e: FormEvent) { e.preventDefault(); void cargar(q, anio); }
+  function limpiar() { setQ(""); setAnio(""); setTipo(""); void cargar("", ""); }
+  const filtrados = useMemo(() => recibos.filter((r) => !tipo || r.tipoCobro === tipo), [recibos, tipo]);
+  const totalPages = Math.max(1, Math.ceil(filtrados.length / pageSize));
+  const pageItems = filtrados.slice((page - 1) * pageSize, page * pageSize);
+  const total = (type?: string) => filtrados.filter((r) => !type || r.tipoCobro === type).reduce((s, r) => s + Number(r.totalPagado), 0);
+  function exportar() {
+    exportCsv(`recibos-${consulta.anio || "todos"}.csv`, ["Recibo", "Beneficiario", "DPI", "Fecha de pago", "Concepto", "Total GTQ"], filtrados.map((r) => [r.numeroRecibo, r.vivienda?.usuario?.nombreCompleto ?? "", r.vivienda?.usuario?.dpi ?? "", r.fechaPago, r.tipoCobro === "tarifa_anual" ? "Tarifa anual" : "Compra de chorro", r.totalPagado]));
   }
-
-  const totalPages = Math.max(1, Math.ceil(recibos.length / pageSize));
-  const pageItems = useMemo(
-    () => recibos.slice((page - 1) * pageSize, page * pageSize),
-    [recibos, page],
-  );
-
-  const ingresos = useMemo(() => {
-    let tarifaAnual = 0;
-    let compraChorro = 0;
-    for (const r of recibos) {
-      const monto = Number(r.totalPagado) || 0;
-      if (r.tipoCobro === "compra_chorro") compraChorro += monto;
-      else tarifaAnual += monto;
-    }
-    return {
-      tarifaAnual,
-      compraChorro,
-      total: tarifaAnual + compraChorro,
-    };
-  }, [recibos]);
-
-  return (
-    <PageStack>
-      <PageIntro
-        title="Historial"
-        action={
-          <Link href="/facturacion" className={cn(buttonVariants(), "rounded-full")}>
-            <Plus className="size-4" />
-            Emitir
-          </Link>
-        }
-      />
-
-      {!loading && recibos.length > 0 ? (
-        <LedgerStats
-          items={[
-            {
-              label: "Tarifa anual",
-              value: formatQuetzales(ingresos.tarifaAnual),
-              icon: FileText,
-              hint: "en este listado",
-            },
-            {
-              label: "Compra de chorro",
-              value: formatQuetzales(ingresos.compraChorro),
-              icon: Droplets,
-              hint: "en este listado",
-            },
-            {
-              label: "Total",
-              value: formatQuetzales(ingresos.total),
-              icon: Wallet,
-              hint: `${recibos.length} recibos`,
-            },
-          ]}
-        />
-      ) : null}
-
-      <div>
-        <form
-          onSubmit={onBuscar}
-          className="grid gap-2 sm:grid-cols-[1fr_140px_auto]"
-        >
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="h-10 rounded-full pl-10"
-                placeholder="Nombre, DPI o recibo"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                aria-label="Buscar facturas"
-              />
-            </div>
-            <select
-              className={cn(nativeSelectClass, "h-10")}
-              value={anio}
-              onChange={(e) => setAnio(e.target.value)}
-              aria-label="Año de la factura"
-            >
-              <option value="">Todos los años</option>
-              {ANIOS.map((y) => (
-                <option key={y} value={String(y)}>
-                  {y}
-                </option>
-              ))}
-            </select>
-            <Button type="submit" variant="outline" className="h-10 rounded-full">
-              <Filter className="size-4" />
-              Buscar
-            </Button>
-          </form>
-
-        {loading ? (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-border">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-6 border-b border-border px-5 py-3.5 last:border-b-0"
-              >
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="hidden h-4 w-28 sm:block" />
-                <Skeleton className="hidden h-4 w-24 sm:block" />
-              </div>
-            ))}
-          </div>
-        ) : pageItems.length === 0 ? (
-          <div className="px-5">
-            <EmptyState
-              title={hayFiltro ? "Sin coincidencias" : "Sin facturas"}
-              action={
-                hayFiltro ? undefined : (
-                  <Link href="/facturacion" className={cn(buttonVariants())}>
-                    Emitir
-                  </Link>
-                )
-              }
-            />
-          </div>
-        ) : (
-          <>
-            <div className="mt-2 overflow-hidden rounded-2xl border border-border">
-              <div className="overflow-x-auto">
-              <table className="w-full min-w-215 text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30 text-caption font-medium text-muted-foreground">
-                    <th className="px-5 py-3.5">Recibo</th>
-                    <th className="px-5 py-3.5">Beneficiario</th>
-                    <th className="px-5 py-3.5">DPI</th>
-                    <th className="px-5 py-3.5">Fecha</th>
-                    <th className="px-5 py-3.5">Tipo</th>
-                    <th className="px-5 py-3.5">Total</th>
-                    <th className="px-5 py-3.5 text-right">PDF</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageItems.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="border-b border-border last:border-b-0 transition-ui hover:bg-muted/40"
-                    >
-                      <td className="px-5 py-3.5 font-mono tabular-nums">
-                        {formatRecibo(r.numeroRecibo)}
-                      </td>
-                      <td className="max-w-60 truncate px-5 py-3.5">
-                        {r.vivienda?.usuario?.nombreCompleto ?? "—"}
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-caption whitespace-nowrap text-muted-foreground">
-                        {r.vivienda?.usuario?.dpi
-                          ? formatDpi(r.vivienda.usuario.dpi)
-                          : "—"}
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-caption text-muted-foreground">
-                        {formatFecha(r.fechaPago)}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={cn(
-                            "inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium",
-                            r.tipoCobro === "tarifa_anual"
-                              ? "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200"
-                              : "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
-                          )}
-                        >
-                          {etiquetaTipo(r.tipoCobro)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-sm tabular-nums">
-                        {formatQuetzales(r.totalPagado)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setPdfSource(sourceFromRecibo(r))}
-                          className="text-sm text-primary transition-ui hover:underline"
-                        >
-                          Ver PDF
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-
-            <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-caption text-muted-foreground">
-                Mostrando {(page - 1) * pageSize + 1}-
-                {Math.min(page * pageSize, recibos.length)} de {recibos.length}{" "}
-                facturas.
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Anterior
-                </Button>
-                <span className="min-w-16 text-center text-caption tabular-nums text-muted-foreground">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Siguiente
-                </Button>
-              </div>
-            </div>
-            </div>
-          </>
-        )}
-      </div>
-      <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
-    </PageStack>
-  );
+  const valor = (n: number) => loading || error ? "—" : formatQuetzales(n);
+  return <PageStack className="gap-7">
+    <div><p className="admin-kicker mb-2">Archivo de tesorería</p><PageIntro title="Historial de recibos" description="Encuentra cada pago, revisa su comprobante y exporta los movimientos de tu consulta." action={<Link href="/facturacion" className={buttonVariants()}><Plus className="size-4" />Emitir</Link>} /></div>
+    <LedgerStats items={[
+      { label: "Total consultado", value: valor(total()), hint: "suma del listado filtrado", icon: Wallet },
+      { label: "Tarifa anual", value: valor(total("tarifa_anual")), hint: "en esta consulta", icon: FileText },
+      { label: "Compra de chorro", value: valor(total("compra_chorro")), hint: "en esta consulta", icon: Droplets },
+      { label: "Recibos encontrados", value: loading || error ? "—" : filtrados.length, hint: "hasta 500 registros por consulta", icon: FileText },
+    ]} />
+    <section className="admin-surface min-w-0"><div className="admin-surface-header"><div><h2>Buscar movimientos</h2><p className="mt-1 text-xs text-muted-foreground">Filtra por beneficiario, número de recibo, año o concepto.</p></div><Button variant="outline" size="sm" disabled={loading || Boolean(error) || !filtrados.length} onClick={exportar}><Download className="size-4" />Exportar CSV</Button></div>
+      <form onSubmit={buscar} className="grid items-end gap-3 p-5 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_140px_180px_auto]">
+        <label className="space-y-2 text-xs font-medium sm:col-span-2 xl:col-span-1"><span>Beneficiario o recibo</span><div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="h-11 pl-9" placeholder="Nombre, DPI o recibo" aria-label="Buscar facturas" value={q} onChange={(e) => setQ(e.target.value)} /></div></label>
+        <label className="space-y-2 text-xs font-medium"><span>Año de pago</span><select className={nativeSelectClass} value={anio} onChange={(e) => setAnio(e.target.value)} aria-label="Año de la factura"><option value="">Todos los años</option>{ANIOS.map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
+        <label className="space-y-2 text-xs font-medium"><span>Concepto</span><select className={nativeSelectClass} value={tipo} onChange={(e) => { setTipo(e.target.value); setPage(1); }} aria-label="Concepto de pago"><option value="">Todos los conceptos</option><option value="tarifa_anual">Tarifa anual</option><option value="compra_chorro">Compra de chorro</option></select></label>
+        <Button type="submit" disabled={loading} className="h-11"><Filter className="size-4" />Buscar</Button>
+      </form>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-y border-border bg-muted/30 px-5 py-3"><p className="text-xs text-muted-foreground" aria-live="polite">{loading ? "Consultando movimientos…" : error ? "Consulta no disponible" : `${filtrados.length} recibos · ${consulta.anio || "Todos los años"}${consulta.q ? ` · ${consulta.q}` : ""}`}</p><Button variant="ghost" size="sm" onClick={limpiar} disabled={loading}>Limpiar filtros</Button></div>
+      {loading ? <div className="space-y-4 p-5">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div> : error ? <div role="alert" className="space-y-4 p-6"><p className="text-sm text-destructive">{error}</p><Button variant="outline" onClick={() => void cargar(q, anio)}>Reintentar</Button></div> : !pageItems.length ? <EmptyState className="px-6" title={hayFiltro ? "Sin coincidencias" : "Tu archivo de recibos comienza aquí"} description={hayFiltro ? "Prueba otro nombre, año o concepto. Puedes limpiar los filtros para consultar todos los movimientos." : "Cada cobro emitido se guardará con su beneficiario, fecha, monto y PDF. Emite el primer recibo desde el módulo de cobros."} action={hayFiltro ? <Button variant="outline" onClick={limpiar}>Ver todos los recibos</Button> : <Link href="/facturacion" className={buttonVariants({ variant: "outline" })}>Emitir recibo</Link>} /> : <><ReceiptList recibos={pageItems} onOpen={(r) => setPdf(sourceFromRecibo(r))} /><div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-5"><p className="text-xs text-muted-foreground">Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtrados.length)} de {filtrados.length}</p><div className="flex items-center gap-2"><Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button><span className="text-xs tabular-nums">{page} / {totalPages}</span><Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button></div></div></>}
+      {recibos.length >= 500 && !loading && !error && <p className="border-t border-border p-5 text-xs text-muted-foreground">Se muestran los 500 recibos más recientes de la consulta. Filtra por año o beneficiario para acotar los resultados.</p>}
+    </section>
+    <div className="admin-module-help"><h3 className="text-sm font-semibold">Tus comprobantes, siempre a mano</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Usa «Ver PDF» para consultar, imprimir o descargar el comprobante original. El CSV contiene los recibos de la consulta actual, incluidas todas sus páginas.</p></div>
+    <ReciboPdfViewer source={pdf} onClose={() => setPdf(null)} />
+  </PageStack>;
 }

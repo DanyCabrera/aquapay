@@ -15,6 +15,8 @@ backend/    → Node.js + Express + TypeORM + class-validator
 - Se pueden cobrar **años atrasados** en un solo recibo.
 - **Compra de chorro** es un cobro aparte.
 - DPI mínimo **13 dígitos**.
+- Activar, desactivar y eliminar beneficiarios requiere confirmación visual.
+- Solo se eliminan beneficiarios sin recibos; los que tienen cobros se pueden desactivar para conservar su historial.
 - Numeración de recibos: `001`, `002`… reinicia cada año.
 - Lugar de pago: Aldea Sibaná, El Asintal, Retalhuleu.
 - Firma manuscrita en el PDF (espacio en blanco).
@@ -71,6 +73,25 @@ Variables:
 2. Iniciar sesión con DPI + contraseña.
 3. Registrar usuarios de comunidad → viviendas → chorros.
 4. En **Facturación**, cobrar tarifa anual o compra de chorro.
+
+## Pruebas E2E de ADMIN (Cypress)
+
+La revisión del panel y los 20 beneficiarios de demostración están documentados
+en [Panel de administrador](docs/panel-administrador.md).
+
+En desarrollo, el backend permite el frontend en `http://localhost:3000` y
+`http://localhost:3001` (Next.js usa el segundo si el primero está ocupado).
+En producción se permite únicamente el origen definido en `FRONTEND_URL`.
+
+Con ambos servidores en marcha y las credenciales configuradas en
+`frontend/cypress.env.json`, ejecutar desde `frontend`:
+
+```bash
+npm run test:e2e:admin
+```
+
+Para abrir Cypress, usar `npm run cypress:open`. La preparación, cobertura y
+limpieza de datos están descritas en [la guía de Cypress](frontend/cypress/README.md).
 
 ## Despliegue
 

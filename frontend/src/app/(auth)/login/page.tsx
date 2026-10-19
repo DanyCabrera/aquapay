@@ -181,10 +181,10 @@ export default function LoginPage() {
 
   return (
     <AuthShell mode="login">
-      <div className="space-y-8">
+      <div className="space-y-6">
         {mode === "entrar" ? (
           <>
-            <h1>Entrar</h1>
+            <div><h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Inicia sesión</h1><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Ingresa con tu DPI y contraseña para continuar.</p></div>
 
             <form onSubmit={onCredentialsSubmit} className="space-y-4" noValidate>
               <div className="space-y-1.5">
@@ -259,7 +259,7 @@ export default function LoginPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between gap-3 pt-0.5">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
                 <label
                   htmlFor={rememberId}
                   className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground"
@@ -277,7 +277,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={abrirRestablecer}
-                  className="text-caption text-foreground underline-offset-4 transition-ui hover:underline focus-visible:outline-none"
+                  className="text-caption font-medium text-primary underline-offset-4 transition-ui hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 >
                   ¿Olvidó la contraseña?
                 </button>
@@ -461,9 +461,10 @@ export default function LoginPage() {
         )}
 
         <p className="border-t border-border pt-5 text-center text-caption text-muted-foreground">
+          ¿Aún no tienes cuenta?{" "}
           <Link
             href="/registro"
-            className="font-medium text-foreground underline-offset-4 hover:underline"
+            className="font-semibold text-primary underline-offset-4 hover:underline"
           >
             Crear cuenta
           </Link>

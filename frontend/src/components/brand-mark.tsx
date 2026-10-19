@@ -1,4 +1,4 @@
-import { Droplets } from "lucide-react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 export function BrandMark({
@@ -12,9 +12,7 @@ export function BrandMark({
 }) {
   return (
     <div className={cn("flex min-w-0 items-center gap-2.5", className)}>
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-        <Droplets className="size-5" />
-      </span>
+      <Image src="/logo.png" alt="Logo de AquaPay: gota, vivienda y agua" width={44} height={44} className="size-11 shrink-0 object-contain" priority />
       {collapsed ? null : (
         <div className="min-w-0 leading-tight">
           <p className="truncate text-sm font-semibold tracking-tight">AquaPay</p>

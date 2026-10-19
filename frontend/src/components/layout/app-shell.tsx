@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (loading || !user) {
     return (
-      <div className="flex h-svh overflow-hidden bg-card">
+      <div className="flex h-svh overflow-hidden bg-background">
         <Skeleton className="hidden h-full w-60 lg:block" />
         <div className="flex-1 space-y-4 overflow-y-auto p-6">
           <Skeleton className="h-8 w-40" />
@@ -56,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="h-svh overflow-hidden bg-card">
+    <div className={`admin-workspace ${user.rol === "tesorero" ? "treasury-workspace " : ""}h-svh overflow-hidden bg-background`}>
       <a
         href="#contenido"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-card focus:px-3 focus:py-2 focus:text-sm"
@@ -71,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             id="contenido"
             className="min-h-0 flex-1 overflow-auto overscroll-contain px-5 pb-10 pt-6 sm:px-8"
           >
-            {children}
+            <div className="mx-auto w-full max-w-[1600px]">{children}</div>
           </main>
         </div>
       </div>

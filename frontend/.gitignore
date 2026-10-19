@@ -10,6 +10,15 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/e2e/.auth/
+/cypress/screenshots/
+/cypress/videos/
+/cypress/downloads/
+/cypress.env.json
 
 # next.js
 /.next/

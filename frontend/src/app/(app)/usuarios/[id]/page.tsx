@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { CalendarDays, Droplets, House, Pencil, Phone, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { UsuarioComunidad } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
@@ -24,6 +25,7 @@ import { PageStack, PageBackLink } from "@/components/layout/page-stack";
 import { cn } from "@/lib/utils";
 import { PRECIO_CHORRO_UNITARIO } from "@/lib/navigation";
 import { formatDpi, formatFecha, formatQuetzales } from "@/lib/format";
+import { UsuarioAccionDialog, type UsuarioAccionPendiente } from "@/components/usuarios/usuario-accion-dialog";
 
 export default function UsuarioDetallePage() {
   const { id } = useParams<{ id: string }>();
@@ -31,12 +33,16 @@ export default function UsuarioDetallePage() {
   const isAdmin = user?.rol === "administrador";
   const router = useRouter();
   const [data, setData] = useState<UsuarioComunidad | null>(null);
+  const [pendiente, setPendiente] = useState<UsuarioAccionPendiente | null>(null);
+  const [editarOpen, setEditarOpen] = useState(false);
+  const [perfilForm, setPerfilForm] = useState({ nombreCompleto: "", telefono: "" });
+  const [saving, setSaving] = useState<string | null>(null);
   const [viviendaOpen, setViviendaOpen] = useState(false);
   const [chorroOpen, setChorroOpen] = useState<string | null>(null);
   const [direccion, setDireccion] = useState("");
-  const [anioInicio, setAnioInicio] = useState(new Date().getFullYear());
+  const [anioInicio, setAnioInicio] = useState(String(new Date().getFullYear()));
   const [chorroForm, setChorroForm] = useState({
-    cantidad: 1,
+    cantidad: "1",
   });
 
   async function cargar() {
@@ -55,13 +61,14 @@ export default function UsuarioDetallePage() {
 
   async function crearVivienda(e: FormEvent) {
     e.preventDefault();
-    if (!isAdmin) return;
+    if (!isAdmin || saving) return;
+    setSaving("vivienda");
     try {
       await api(`/api/usuarios/${id}/viviendas`, {
         method: "POST",
         body: JSON.stringify({
           direccion,
-          anioInicioCobro: anioInicio,
+          anioInicioCobro: Number(anioInicio),
         }),
       });
       toast.success("Vivienda registrada");
@@ -70,14 +77,17 @@ export default function UsuarioDetallePage() {
       cargar();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Error");
+    } finally {
+      setSaving(null);
     }
   }
 
   async function crearChorro(e: FormEvent) {
     e.preventDefault();
-    if (!chorroOpen || !isAdmin) return;
+    if (!chorroOpen || !isAdmin || saving) return;
+    setSaving("chorro");
     try {
-      const cantidad = Math.max(1, chorroForm.cantidad);
+      const cantidad = Number(chorroForm.cantidad);
       await api(`/api/usuarios/viviendas/${chorroOpen}/chorros`, {
         method: "POST",
         body: JSON.stringify({
@@ -87,38 +97,39 @@ export default function UsuarioDetallePage() {
       });
       toast.success("Chorro registrado");
       setChorroOpen(null);
-      setChorroForm({ cantidad: 1 });
+      setChorroForm({ cantidad: "1" });
       cargar();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Error");
+    } finally {
+      setSaving(null);
     }
   }
 
-  async function desactivar() {
-    if (!confirm("¿Desactivar este usuario?")) return;
+  async function guardarPerfil(e: FormEvent) {
+    e.preventDefault();
+    if (!isAdmin || saving) return;
+    setSaving("perfil");
     try {
-      await api(`/api/usuarios/${id}/desactivar`, { method: "POST" });
-      toast.success("Usuario desactivado");
-      cargar();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Error");
-    }
+      const updated = await api<UsuarioComunidad>(`/api/usuarios/${id}`, { method: "PATCH", body: JSON.stringify(perfilForm) });
+      setData((prev) => prev ? { ...prev, ...updated } : updated);
+      setEditarOpen(false);
+      toast.success("Datos del beneficiario actualizados");
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : "No se pudo actualizar el beneficiario."); }
+    finally { setSaving(null); }
   }
 
-  async function activar() {
-    if (!confirm("¿Habilitar este usuario?")) return;
-    try {
-      await api(`/api/usuarios/${id}/activar`, { method: "POST" });
-      toast.success("Usuario habilitado");
-      cargar();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Error");
+  async function confirmarAccion({ usuario, accion }: UsuarioAccionPendiente) {
+    if (!isAdmin) return;
+    if (accion === "eliminar") {
+      await api(`/api/usuarios/${usuario.id}`, { method: "DELETE" });
+      toast.success("Beneficiario eliminado");
+      router.push("/usuarios");
+    } else {
+      const updated = await api<UsuarioComunidad>(`/api/usuarios/${usuario.id}/${accion}`, { method: "POST" });
+      setData((prev) => prev ? { ...prev, ...updated } : updated);
+      toast.success(accion === "activar" ? "Beneficiario activado" : "Beneficiario desactivado");
     }
-  }
-
-  async function toggleActivo() {
-    if (data?.activo) await desactivar();
-    else await activar();
   }
 
   if (!data) {
@@ -135,9 +146,10 @@ export default function UsuarioDetallePage() {
   return (
     <PageStack>
       <PageBackLink href="/usuarios">Volver a beneficiarios</PageBackLink>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="admin-surface flex flex-wrap items-center justify-between gap-5 p-6">
         <div className="min-w-0">
-          <h2>{data.nombreCompleto}</h2>
+          <div className="mb-3 flex items-center gap-2"><span className="rounded-md bg-primary/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Ficha del beneficiario</span><StatusBadge status={data.activo ? "activo" : "inactivo"} /></div>
+          <h2 className="text-xl font-semibold tracking-tight">{data.nombreCompleto}</h2>
           <p className="mt-0.5 font-mono text-caption text-muted-foreground">
             {formatDpi(data.dpi)}
           </p>
@@ -146,13 +158,14 @@ export default function UsuarioDetallePage() {
           <div className="flex flex-wrap items-center gap-3">
             <Switch
               checked={data.activo}
-              onCheckedChange={() => toggleActivo()}
+              onCheckedChange={() => setPendiente({ usuario: data, accion: data.activo ? "desactivar" : "activar" })}
               onLabel="Activo"
               offLabel="Inactivo"
               aria-label={
                 data.activo ? "Deshabilitar usuario" : "Habilitar usuario"
               }
             />
+            <Button variant="outline" onClick={() => { setPerfilForm({ nombreCompleto: data.nombreCompleto, telefono: data.telefono ?? "" }); setEditarOpen(true); }}><Pencil className="size-4" />Editar datos</Button>
             <Link
               href={`/pagos?dpi=${data.dpi}`}
               className={cn(buttonVariants({ variant: "outline" }), "rounded-full")}
@@ -162,11 +175,21 @@ export default function UsuarioDetallePage() {
             <Button variant="outline" onClick={() => setViviendaOpen(true)}>
               Agregar vivienda
             </Button>
+            <Button variant="destructive" onClick={() => setPendiente({ usuario: data, accion: "eliminar" })}>
+              <Trash2 className="size-4" aria-hidden />
+              Eliminar beneficiario
+            </Button>
           </div>
         ) : (
           <StatusBadge status={data.activo ? "activo" : "inactivo"} />
         )}
       </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[
+        { label: "Teléfono de contacto", value: data.telefono ?? "Sin teléfono registrado", icon: Phone },
+        { label: "Fecha de registro", value: formatFecha(data.fechaRegistro), icon: CalendarDays },
+        { label: "Viviendas registradas", value: (data.viviendas ?? []).length, icon: House },
+        { label: "Chorros registrados", value: (data.viviendas ?? []).reduce((n, v) => n + (v.chorros ?? []).reduce((s, c) => s + c.cantidad, 0), 0), icon: Droplets },
+      ].map(({ label, value, icon: Icon }) => <div key={label} className="admin-surface p-5"><div className="mb-3 flex items-center gap-2 text-muted-foreground"><Icon className="size-4" /><p className="text-[11px]">{label}</p></div><p className="text-sm font-semibold">{value}</p></div>)}</div>
 
       <section>
         <h2 className="mb-3">Viviendas y chorros</h2>
@@ -183,12 +206,12 @@ export default function UsuarioDetallePage() {
             }
           />
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {data.viviendas!.map((v) => (
-              <div key={v.id} className="border-t border-border pt-4">
+              <div key={v.id} className="admin-surface p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">{v.direccion}</p>
+                    <p className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-primary"><House className="size-3.5" />Vivienda</p><p className="text-sm font-medium">{v.direccion}</p>
                     <p className="mt-0.5 text-caption text-muted-foreground">
                       Cobro desde{" "}
                       <span className="tabular-nums">{v.anioInicioCobro}</span>
@@ -200,7 +223,7 @@ export default function UsuarioDetallePage() {
                     <Button
                       variant="outline"
                       onClick={() => {
-                        setChorroForm({ cantidad: 1 });
+                        setChorroForm({ cantidad: "1" });
                         setChorroOpen(v.id);
                       }}
                     >
@@ -242,6 +265,10 @@ export default function UsuarioDetallePage() {
         )}
       </section>
 
+      <UsuarioAccionDialog pendiente={pendiente} onClose={() => setPendiente(null)} onConfirm={confirmarAccion} />
+
+      <Dialog open={editarOpen} onOpenChange={(open) => { if (!saving) setEditarOpen(open); }}><DialogContent><DialogHeader><DialogTitle>Editar datos del beneficiario</DialogTitle></DialogHeader><form onSubmit={guardarPerfil} className="space-y-4"><div className="space-y-2"><Label htmlFor="editar-nombre">Nombre completo</Label><Input id="editar-nombre" required minLength={3} maxLength={200} value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div><div className="space-y-2"><Label htmlFor="editar-telefono">Teléfono</Label><Input id="editar-telefono" maxLength={30} value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div><p className="text-xs text-muted-foreground">El DPI identifica el registro y no se modifica desde esta ficha.</p><Button type="submit" disabled={!!saving} className="w-full">{saving === "perfil" ? "Guardando…" : "Guardar cambios"}</Button></form></DialogContent></Dialog>
+
       <Dialog open={viviendaOpen} onOpenChange={setViviendaOpen}>
         <DialogContent>
           <DialogHeader>
@@ -249,25 +276,29 @@ export default function UsuarioDetallePage() {
           </DialogHeader>
           <form onSubmit={crearVivienda} className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Dirección</Label>
+              <Label htmlFor="nueva-direccion">Dirección</Label>
               <Input
+                id="nueva-direccion"
                 value={direccion}
                 onChange={(e) => setDireccion(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Año inicio de cobro</Label>
+              <Label htmlFor="nuevo-anio">Año inicio de cobro</Label>
               <Input
+                id="nuevo-anio"
+                min={2000}
+                max={2100}
                 className="font-mono"
                 type="number"
                 value={anioInicio}
-                onChange={(e) => setAnioInicio(Number(e.target.value))}
+                onChange={(e) => setAnioInicio(e.target.value)}
                 required
               />
             </div>
-            <Button type="submit" className="w-full">
-              Guardar
+            <Button type="submit" className="w-full" disabled={!!saving}>
+              {saving === "vivienda" ? "Guardando…" : "Guardar"}
             </Button>
           </form>
         </DialogContent>
@@ -280,37 +311,40 @@ export default function UsuarioDetallePage() {
           </DialogHeader>
           <form onSubmit={crearChorro} className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Cantidad de chorros</Label>
+              <Label htmlFor="nuevo-chorro-cantidad">Cantidad de chorros</Label>
               <Input
+                id="nuevo-chorro-cantidad"
                 type="number"
                 min={1}
                 value={chorroForm.cantidad}
                 onChange={(e) =>
                   setChorroForm({
-                    cantidad: Math.max(1, Number(e.target.value) || 1),
+                    cantidad: e.target.value,
                   })
                 }
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Precio unitario</Label>
+              <Label htmlFor="nuevo-chorro-precio">Precio unitario</Label>
               <Input
+                id="nuevo-chorro-precio"
                 value={formatQuetzales(PRECIO_CHORRO_UNITARIO)}
                 readOnly
                 className="bg-muted"
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Precio total de compra</Label>
+              <Label htmlFor="nuevo-chorro-total">Precio total de compra</Label>
               <Input
-                value={formatQuetzales(chorroForm.cantidad * PRECIO_CHORRO_UNITARIO)}
+                id="nuevo-chorro-total"
+                value={formatQuetzales(Number(chorroForm.cantidad) * PRECIO_CHORRO_UNITARIO)}
                 readOnly
                 className="bg-muted font-semibold"
               />
             </div>
-            <Button type="submit" className="w-full">
-              Guardar
+            <Button type="submit" className="w-full" disabled={!!saving}>
+              {saving === "chorro" ? "Guardando…" : "Guardar"}
             </Button>
           </form>
         </DialogContent>

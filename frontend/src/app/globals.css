@@ -57,7 +57,7 @@
 }
 
 :root {
-  --background: oklch(0.945 0.006 260);
+  --background: #ffffff;
   --foreground: oklch(0.22 0.02 260);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.02 260);
@@ -86,7 +86,7 @@
   --chart-4: oklch(0.84 0.14 85);
   --chart-5: oklch(0.62 0.14 230);
   --radius: 0.75rem;
-  --sidebar: oklch(1 0 0);
+  --sidebar: #ffffff;
   --sidebar-foreground: oklch(0.22 0.02 260);
   --sidebar-primary: oklch(0.55 0.19 255);
   --sidebar-primary-foreground: oklch(0.99 0.01 250);
@@ -97,19 +97,19 @@
 }
 
 .dark {
-  --background: oklch(0.22 0.012 260);
+  --background: #000000;
   --foreground: oklch(0.96 0.006 260);
-  --card: oklch(0.27 0.012 260);
+  --card: #0c0c0c;
   --card-foreground: oklch(0.96 0.006 260);
-  --popover: oklch(0.27 0.012 260);
+  --popover: #0c0c0c;
   --popover-foreground: oklch(0.96 0.006 260);
   --primary: oklch(0.68 0.16 255);
   --primary-foreground: oklch(0.18 0.04 255);
-  --secondary: oklch(0.32 0.012 260);
+  --secondary: #181818;
   --secondary-foreground: oklch(0.96 0.006 260);
-  --muted: oklch(0.32 0.012 260);
+  --muted: #181818;
   --muted-foreground: oklch(0.72 0.014 260);
-  --accent: oklch(0.32 0.012 260);
+  --accent: #181818;
   --accent-foreground: oklch(0.96 0.006 260);
   --destructive: oklch(0.68 0.18 25);
   --destructive-foreground: oklch(0.18 0.04 40);
@@ -117,21 +117,21 @@
   --success-foreground: oklch(0.18 0.04 145);
   --warning: oklch(0.82 0.14 85);
   --warning-foreground: oklch(0.28 0.06 70);
-  --border: oklch(0.36 0.012 260);
-  --input: oklch(0.36 0.012 260);
+  --border: #282828;
+  --input: #333333;
   --ring: oklch(0.68 0.16 255);
   --chart-1: oklch(0.68 0.16 255);
   --chart-2: oklch(0.74 0.16 145);
   --chart-3: oklch(0.72 0.12 290);
   --chart-4: oklch(0.82 0.14 85);
   --chart-5: oklch(0.62 0.14 230);
-  --sidebar: oklch(0.25 0.012 260);
+  --sidebar: #000000;
   --sidebar-foreground: oklch(0.96 0.006 260);
   --sidebar-primary: oklch(0.68 0.16 255);
   --sidebar-primary-foreground: oklch(0.18 0.04 255);
-  --sidebar-accent: oklch(0.32 0.012 260);
+  --sidebar-accent: #181818;
   --sidebar-accent-foreground: oklch(0.96 0.006 260);
-  --sidebar-border: oklch(0.36 0.012 260);
+  --sidebar-border: #282828;
   --sidebar-ring: oklch(0.68 0.16 255);
 }
 
@@ -215,4 +215,57 @@
   .pressable:active {
     transform: scale(0.98);
   }
+}
+
+/* Estilo compartido de los paneles de administración y tesorería. */
+.admin-workspace {
+  --background: #ffffff;
+  --foreground: #171717;
+  --primary: #315fe9;
+  --primary-foreground: #ffffff;
+  --border: #e5e5e5;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  color: var(--foreground);
+}
+.dark .admin-workspace {
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --primary: #85a6ff;
+  --primary-foreground: #10244a;
+  --border: #282828;
+  --muted: #181818;
+  --muted-foreground: #a3a3a3;
+}
+.admin-workspace main { background: var(--background); }
+.admin-sidebar {
+  --sidebar: var(--background);
+  --input: var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+.admin-sidebar nav a { min-height: 45px; }
+.admin-sidebar nav a[aria-current="page"] { background: var(--muted); color: var(--foreground); box-shadow: none; }
+.admin-sidebar nav a[aria-current="page"] > svg { color: var(--primary); }
+.admin-sidebar nav a[aria-current="page"] > span:first-child:not(:last-child) { background: var(--primary); }
+.admin-workspace .admin-topbar { min-height: 80px; }
+.admin-surface { border: 1px solid var(--border); border-radius: 18px; background: var(--card); box-shadow: 0 3px 16px #192b461f; }
+.admin-workspace .admin-surface { box-shadow: 0 3px 16px #192b4605; }
+.admin-workspace button.admin-surface[aria-pressed="true"] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 4%, var(--card)); }
+.admin-workspace a.admin-surface:hover, .admin-workspace button.admin-surface:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
+.admin-surface-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 24px; border-bottom: 1px solid var(--border); }
+.admin-surface-header h2 { font-size: 15px; }
+.admin-kicker { font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted-foreground); }
+.admin-workspace table th { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; padding-top: 16px; padding-bottom: 16px; }
+.admin-workspace table td { padding-top: 17px; padding-bottom: 17px; }
+.admin-workspace .admin-module-intro { padding: 2px 0 4px; }
+.dark .admin-workspace .text-blue-600 { color: #8aafff; }
+.dark .admin-workspace .text-emerald-600 { color: #6ee7b7; }
+.dark .admin-workspace .text-violet-600 { color: #b49cff; }
+.dark .admin-workspace .text-cyan-600 { color: #6bd4ed; }
+.dark .admin-workspace .text-amber-600 { color: #f5c362; }
+.admin-module-help { border: 1px solid var(--border); background: var(--card); border-radius: 16px; padding: 20px; }
+@media (max-width: 639px) {
+  .admin-surface-header { padding: 18px; }
+  .admin-workspace .admin-topbar { min-height: 72px; }
 }

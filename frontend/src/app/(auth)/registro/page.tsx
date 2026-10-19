@@ -37,7 +37,6 @@ export default function RegistroPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [terms, setTerms] = useState(false);
   const [permitirAdministrador, setPermitirAdministrador] = useState(false);
-  const [opcionesCargadas, setOpcionesCargadas] = useState(false);
   const [touched, setTouched] = useState({
     nombre: false,
     dpi: false,
@@ -58,7 +57,6 @@ export default function RegistroPage() {
         if (!data.permitirAdministrador) {
           setForm((f) => ({ ...f, rol: "tesorero" }));
         }
-        setOpcionesCargadas(true);
       })
       .catch((err) => {
         toast.error(
@@ -66,7 +64,6 @@ export default function RegistroPage() {
             ? err.message
             : "No hay conexión con el servidor.",
         );
-        setOpcionesCargadas(false);
       });
   }, []);
 
@@ -152,8 +149,8 @@ export default function RegistroPage() {
 
   return (
     <AuthShell mode="registro">
-      <div className="space-y-8">
-        <h1>Crear cuenta</h1>
+      <div className="space-y-6">
+        <div><h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Crear cuenta</h1><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Completa tus datos para comenzar en AquaPay.</p></div>
 
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <div className="space-y-1.5">
@@ -241,7 +238,7 @@ export default function RegistroPage() {
                 name="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
-                placeholder=""
+              placeholder="Mínimo 8 caracteres"
                 value={form.password}
                 onChange={(e) =>
                   setForm({ ...form, password: e.target.value })
@@ -298,7 +295,7 @@ export default function RegistroPage() {
                 disabled={loading}
                 aria-invalid={Boolean(termsError) || undefined}
                 aria-describedby={termsError ? termsErrorId : undefined}
-                className="mt-0.5 size-3.5 rounded border-border accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/40"  // Cambiado a primary para que coincida con el color del botón
+                className="mt-0.5 size-4 rounded border-border accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/40"
               />
               <span>
                 Acepto el tratamiento del DPI.
@@ -328,9 +325,10 @@ export default function RegistroPage() {
         </form>
 
         <p className="border-t border-border pt-5 text-center text-caption text-muted-foreground">
+          ¿Ya tienes cuenta?{" "}
           <Link
             href="/login"
-            className="font-medium text-foreground underline-offset-4 hover:underline"
+            className="font-semibold text-primary underline-offset-4 hover:underline"
           >
             Iniciar Sesión
           </Link>

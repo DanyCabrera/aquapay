@@ -19,6 +19,7 @@ const fuenteDatos = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "AquaPay — Aldea Sibaná",
   description: "Cobros del servicio de agua de Aldea Sibaná, El Asintal, Retalhuleu",
+  icons: { icon: "/logo.png", apple: "/logo.png" },
 };
 
 export default function RootLayout({

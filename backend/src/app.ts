@@ -15,7 +15,11 @@ export function createApp() {
   app.use(helmet());
   app.use(
     cors({
-      origin: env.frontendUrl,
+      // Next.js usa 3001 cuando otro frontend ya ocupa el puerto 3000.
+      origin:
+        env.nodeEnv === "development"
+          ? [env.frontendUrl, "http://localhost:3000", "http://localhost:3001"]
+          : env.frontendUrl,
       credentials: true,
     }),
   );

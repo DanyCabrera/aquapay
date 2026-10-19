@@ -10,12 +10,31 @@ export class ApiError extends Error {
   }
 }
 
+const TOKEN_KEY = "aquapay_token";
+const USER_KEY = "aquapay_user";
+
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
+}
+
+function isPublicAuth(path: string) {
   return (
-    sessionStorage.getItem("aquapay_token") ??
-    localStorage.getItem("aquapay_token")
+    path.startsWith("/api/auth/login") ||
+    path.startsWith("/api/auth/registro") ||
+    path.startsWith("/api/auth/restablecer-password")
   );
+}
+
+/** La sesión local ya no sirve. El AuthProvider escucha este aviso y vuelve al login. */
+function dropInvalidSession(path: string, token: string | null, status: number) {
+  if (status !== 401 || !token || isPublicAuth(path)) return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem("aquapay_mfa_ok");
+  window.dispatchEvent(new Event("aquapay:unauthorized"));
 }
 
 export async function api<T>(
@@ -42,6 +61,7 @@ export async function api<T>(
 
   if (res.headers.get("content-type")?.includes("application/pdf")) {
     if (!res.ok) {
+      dropInvalidSession(path, token, res.status);
       throw new ApiError("No se pudo abrir el PDF del recibo.", res.status);
     }
     const blob = await res.blob();
@@ -50,6 +70,7 @@ export async function api<T>(
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
+    dropInvalidSession(path, token, res.status);
     throw new ApiError(json.message ?? "Error de servidor", res.status);
   }
   return (json.data ?? json) as T;

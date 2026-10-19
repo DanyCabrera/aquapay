@@ -11,6 +11,8 @@ import {
   Rocket,
   Search,
   X,
+  ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -22,6 +24,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const isAdmin = user?.rol === "administrador";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -51,8 +54,7 @@ export function AppSidebar() {
       ? { href: "/facturacion", label: "Emitir recibo" }
       : { href: "/usuarios/nuevo", label: "Registrar" };
 
-  function NavBody() {
-    return (
+  const navBody = (
     <div className="flex h-full min-h-0 flex-col">
       <div
         className={cn(
@@ -85,6 +87,11 @@ export function AppSidebar() {
         </button>
       </div>
 
+      {!collapsed && (
+        <div className="mx-4 mb-5 flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+          {isAdmin ? <ShieldCheck className="size-4" /> : <Wallet className="size-4" />} {isAdmin ? "Panel administrador" : "Panel tesorero"}
+        </div>
+      )}
       <div className={cn("px-3 pb-3", collapsed && "hidden")}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -102,7 +109,7 @@ export function AppSidebar() {
         className="min-h-0 flex-1 space-y-5 overflow-y-auto px-2 pb-3"
         aria-label="Principal"
       >
-        <NavSection title="Menú" collapsed={collapsed}>
+        <NavSection title={isAdmin ? "Comunidad" : "Gestión de cobros"} collapsed={collapsed}>
           {principales.map((link) => (
             <NavItem
               key={link.href}
@@ -117,7 +124,7 @@ export function AppSidebar() {
         </NavSection>
 
         {herramientas.length > 0 ? (
-          <NavSection title="Herramientas" collapsed={collapsed}>
+          <NavSection title={isAdmin ? "Administración" : "Herramientas"} collapsed={collapsed}>
             {herramientas.map((link) => (
               <NavItem
                 key={link.href}
@@ -134,6 +141,12 @@ export function AppSidebar() {
       </nav>
 
       <div className="shrink-0 space-y-2 border-t border-border p-3">
+        {!collapsed && (
+          <div className="flex items-center gap-3 px-2 py-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">{isAdmin ? <ShieldCheck className="size-4" /> : <Wallet className="size-4" />}</span>
+            <div className="min-w-0"><p className="truncate text-xs font-semibold text-foreground" title={user?.nombre}>{user?.nombre}</p><p className="mt-1 text-[10px] text-muted-foreground">{isAdmin ? "Administrador" : "Tesorero"} · AquaPay</p></div>
+          </div>
+        )}
         {collapsed ? (
           <Link
             href={cta.href}
@@ -169,15 +182,14 @@ export function AppSidebar() {
       </div>
     </div>
     );
-  }
 
   return (
     <>
-      <div className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4 lg:hidden">
         <BrandMark />
         <button
           type="button"
-          onClick={() => setMobileOpen(true)}
+          onClick={() => { setCollapsed(false); setMobileOpen(true); }}
           className="inline-flex size-10 items-center justify-center rounded-xl border border-border transition-ui active:scale-95"
           aria-label="Abrir menú"
         >
@@ -191,6 +203,7 @@ export function AppSidebar() {
           mobileOpen ? "pointer-events-auto" : "pointer-events-none",
         )}
         aria-hidden={!mobileOpen}
+        inert={!mobileOpen}
       >
         <button
           type="button"
@@ -205,20 +218,22 @@ export function AppSidebar() {
         <aside
           className={cn(
             "relative z-10 flex h-full w-65 flex-col bg-sidebar shadow-xl transition-transform duration-300 ease-out-quart",
+            "admin-sidebar",
             mobileOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
-          <NavBody />
+          {navBody}
         </aside>
       </div>
 
       <aside
         className={cn(
           "hidden h-full shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-300 ease-out-quart lg:flex",
-          collapsed ? "w-18" : "w-60",
+          "admin-sidebar",
+          collapsed ? "w-18" : "w-64",
         )}
       >
-        <NavBody />
+        {navBody}
       </aside>
     </>
   );
@@ -301,11 +316,15 @@ export function ContentHeader({
     .toUpperCase();
 
   return (
-    <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/80 bg-card px-5 py-3.5 sm:px-8">
-      <h1 className="min-w-0 truncate">{title}</h1>
+    <header className="admin-topbar flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/80 bg-background px-5 py-3.5 sm:px-8">
+      <div className="min-w-0">
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">AquaPay <span className="mx-1.5 text-border">/</span> {user?.rol === "administrador" ? "Administración" : "Tesorería"}</p>
+        <h1 className="min-w-0 truncate text-lg">{title}</h1>
+      </div>
       <div className="flex items-center gap-2">
         {children}
         <ThemeToggle />
+        <div className="mx-2 hidden border-l border-border pl-4 text-right sm:block"><p className="max-w-52 truncate text-xs font-semibold">{user?.nombre}</p><p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-primary">{user?.rol === "administrador" ? "Administrador" : "Tesorero"}</p></div>
         <span
           className="flex size-9 items-center justify-center rounded-full bg-muted text-xs font-semibold"
           title={user?.nombre}

@@ -429,13 +429,16 @@ export class FacturacionService {
       (await import("../entities/UsuarioComunidad")).UsuarioComunidad,
     ).count({ where: { activo: true } });
 
-    const totalViviendas = await this.viviendas().count({
-      where: { activa: true },
-    });
+    const totalViviendas = await this.viviendas().createQueryBuilder("v")
+      .innerJoin("v.usuario", "u")
+      .where("v.activa = true AND u.activo = true").getCount();
 
-    const totalChorros = await AppDataSource.getRepository(
-      (await import("../entities/Chorro")).Chorro,
-    ).count({ where: { activo: true } });
+    const chorrosActivos = await this.chorros().createQueryBuilder("c")
+      .innerJoin("c.vivienda", "v").innerJoin("v.usuario", "u")
+      .select("COALESCE(SUM(c.cantidad), 0)", "total")
+      .where("c.activo = true AND v.activa = true AND u.activo = true")
+      .getRawOne<{ total: string }>();
+    const totalChorros = Number(chorrosActivos?.total ?? 0);
 
     const recibosMes = await this.recibos()
       .createQueryBuilder("r")
