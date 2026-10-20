@@ -12,7 +12,7 @@ function loginTesorero() {
       cy.contains("button", "Iniciar Sesión").click();
       cy.wait("@login").its("response.body.data.usuario.rol").should("eq", "tesorero");
       cy.location("pathname", { timeout: 60_000 }).should("eq", "/dashboard");
-      cy.contains("h2", "Tu centro de cobros").should("be.visible");
+      cy.contains("h2", "Resumen de tesorería").should("be.visible");
     });
   });
 }
@@ -37,8 +37,8 @@ describe("TESORERO — rediseño", () => {
     cy.wait("@resumen").its("response.statusCode").should("be.oneOf", [200, 304]);
     cy.get('button[aria-label="Actualizar resumen"]').should("be.enabled");
     cy.get('main [role="alert"]').should("not.exist");
-    cy.contains("aside:visible", "Panel tesorero").should("be.visible");
-    for (const title of ["Evolución de ingresos", "Preparado para atender", "Últimos recibos"]) cy.contains("h2", title).should("exist");
+    cy.contains("aside:visible", "Tesorero · AquaPay").should("be.visible");
+    for (const title of ["Evolución de ingresos", "Servicio de agua", "Últimos recibos"]) cy.contains("h2", title).should("exist");
     cy.get('aside:visible a[href="/usuarios"]').should("not.exist");
     noOverflow();
     cy.screenshot("tesorero-dashboard-desktop", { capture: "viewport" });
@@ -94,10 +94,10 @@ describe("TESORERO — rediseño", () => {
     }).as("historial");
     cy.visit("/historial"); cy.wait("@historial");
     cy.get('main [role="alert"]').should("be.visible");
-    cy.contains("Tu archivo de recibos comienza aquí").should("not.exist");
+    cy.contains("Sin recibos registrados").should("not.exist");
     cy.then(() => { fallar = false; });
     cy.contains("button", "Reintentar").click(); cy.wait("@historial");
-    cy.contains("Tu archivo de recibos comienza aquí").should("be.visible");
+    cy.contains("Sin recibos registrados").should("be.visible");
     cy.contains("button", "Exportar CSV").should("be.disabled");
   });
 

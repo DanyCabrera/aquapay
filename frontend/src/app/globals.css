@@ -269,3 +269,23 @@
   .admin-surface-header { padding: 18px; }
   .admin-workspace .admin-topbar { min-height: 72px; }
 }
+
+/* En emisión, los controles móviles conservan espacio táctil y evitan el zoom
+   de Safari al enfocar campos con letras pequeñas. */
+@media (max-width: 767px) {
+  .emision-workspace input,
+  .emision-workspace select,
+  .emision-workspace textarea {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 48px;
+    font-size: 16px;
+  }
+  .emision-workspace input[type="date"] { display: block; }
+  .emision-workspace input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+  .emision-workspace [role="radio"] { min-height: 48px; }
+  .emision-workspace .emision-section-body { padding: 16px; }
+  .emision-workspace aside[aria-label="Resumen del cobro"] { width: 100%; }
+  .emision-workspace aside dl { font-size: 14px; line-height: 1.5; }
+  .emision-workspace aside dd { overflow-wrap: anywhere; }
+}

@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClass } from "@/components/layout/page-header";
-import { PageStack, PageIntro } from "@/components/layout/page-stack";
+import { PageStack } from "@/components/layout/page-stack";
 import { formatDpi, formatFecha, formatQuetzales, formatRecibo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -287,27 +287,24 @@ export function EmitirFacturaForm() {
   }
 
   return (
-    <PageStack>
-      <PageIntro
-        title="Emitir recibo"
-        description=""
-        action={
-          <p className="text-right flex flex-col items-end gap-0 fixed right-15 top-30">
+    <PageStack className="emision-workspace min-w-0 gap-5 sm:gap-6">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <h2 className="text-2xl font-semibold tracking-tight">Emitir recibo</h2>
+          <p data-testid="recibo-correlativo" className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:w-auto sm:flex-col sm:items-end sm:gap-0 sm:border-0 sm:p-0 xl:fixed xl:right-15 xl:top-25">
             <span className="block text-caption text-muted-foreground">
               Correlativo
             </span>
-            <span className="font-mono text-[1.75rem] font-medium tabular-nums leading-none text-primary">
+            <span className="font-mono text-xl font-medium tabular-nums leading-none text-primary sm:text-[1.75rem]">
               {formatRecibo(numeroRecibo === "—" ? "" : numeroRecibo)}
             </span>
           </p>
-        }
-      />
+      </div>
 
       <fieldset disabled={loading} className="contents"><div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
       <div className="space-y-5 min-w-0">
       <section className="admin-surface overflow-hidden">
         <div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 01</p><h2>Beneficiario y vivienda</h2></div><House className="size-5 text-primary" /></div>
-      <div className="space-y-6 p-5 sm:p-6">
+      <div className="emision-section-body space-y-6 p-5 sm:p-6">
           {errorUsuarios && <div role="alert" className="space-y-3 text-sm text-destructive"><p>{errorUsuarios}</p><Button variant="outline" onClick={() => void cargarUsuarios()}>Reintentar</Button></div>}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
@@ -336,7 +333,7 @@ export function EmitirFacturaForm() {
                   </option>
                 ))}
               </select>
-              {!loadingUsuarios && !errorUsuarios && <p className="text-xs text-muted-foreground" aria-live="polite">{usuariosFiltrados.length} beneficiarios activos encontrados{busqueda ? ` para «${busqueda}»` : ""}.</p>}
+              {!loadingUsuarios && !errorUsuarios && busqueda && <p className="text-xs text-muted-foreground" aria-live="polite">{usuariosFiltrados.length} beneficiarios activos encontrados{busqueda ? ` para «${busqueda}»` : ""}.</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -405,15 +402,14 @@ export function EmitirFacturaForm() {
             </div>
           </div>
 
-          {loadingPendientes && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />Consultando los pendientes de la vivienda…</p>}
+          {loadingPendientes && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />Consultando pendientes…</p>}
           {errorPendientes && <div role="alert" className="space-y-3 rounded-xl bg-destructive/5 p-4 text-sm text-destructive"><p>{errorPendientes}</p>{viviendaId && <Button variant="outline" onClick={() => void cargarPendientes(viviendaId)}>Reintentar consulta</Button>}</div>}
-          {!usuarioId && <p className="rounded-xl bg-muted/50 p-4 text-xs leading-relaxed text-muted-foreground">Busca por nombre o DPI. Solo se muestran beneficiarios activos; los pendientes se consultan por vivienda.</p>}
       </div></section>
-      <section className="admin-surface overflow-hidden"><div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 02</p><h2>Concepto y fecha de pago</h2></div><Receipt className="size-5 text-primary" /></div><div className="space-y-6 p-5 sm:p-6">
+      <section className="admin-surface overflow-hidden"><div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 02</p><h2>Concepto y fecha de pago</h2></div><Receipt className="size-5 text-primary" /></div><div className="emision-section-body space-y-6 p-5 sm:p-6">
           <div className="space-y-2">
             <Label>Tipo de pago</Label>
             <div
-              className="flex flex-wrap gap-x-8 gap-y-1"
+              className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 sm:flex sm:flex-wrap sm:gap-3"
               role="radiogroup"
               aria-label="Tipo de pago"
               onKeyDown={(e) => {
@@ -519,12 +515,12 @@ export function EmitirFacturaForm() {
 
           <div className="space-y-2">
             <Label htmlFor="descripcion-pago">Descripción <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-            <textarea id="descripcion-pago" rows={4} maxLength={500} value={descripcionPago} onChange={(e) => setDescripcionPago(e.target.value)} placeholder="Escribe una observación o detalle del pago…" aria-describedby="descripcion-pago-ayuda" className="w-full min-w-0 resize-y rounded-xl border border-input bg-background px-3 py-3 text-sm outline-none transition-ui placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50" />
-            <div id="descripcion-pago-ayuda" className="flex flex-wrap justify-between gap-2 text-[11px] text-muted-foreground"><p>Se incluirá en el recibo. Si la dejas vacía, se usará la descripción automática del cobro.</p><span className="shrink-0 tabular-nums">{descripcionPago.length}/500</span></div>
+            <textarea id="descripcion-pago" rows={4} maxLength={500} value={descripcionPago} onChange={(e) => setDescripcionPago(e.target.value)} placeholder="Observación del pago" aria-describedby="descripcion-pago-ayuda" className="w-full min-w-0 resize-y rounded-xl border border-input bg-background px-3 py-3 text-sm outline-none transition-ui placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50" />
+            <div id="descripcion-pago-ayuda" className="flex items-start justify-between gap-3 text-[11px] leading-relaxed text-muted-foreground"><p className="min-w-0 flex-1">En el recibo; automática si se deja vacía.</p><span className="shrink-0 tabular-nums">{descripcionPago.length}/500</span></div>
           </div>
       </div></section>
       </div>
-      <FixedPaymentSummary><div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 03</p><h2>Resumen del cobro</h2></div><ShieldCheck className="size-5 text-primary" /></div><div className="space-y-5 p-5 sm:p-6">
+      <FixedPaymentSummary><div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 03</p><h2>Resumen del cobro</h2></div><ShieldCheck className="size-5 text-primary" /></div><div className="emision-section-body space-y-5 p-5 sm:p-6">
           <dl className="space-y-4 text-xs"><div><dt className="text-muted-foreground">Beneficiario</dt><dd className="mt-1 break-words font-semibold">{usuario?.nombreCompleto || "Por seleccionar"}</dd></div><div><dt className="text-muted-foreground">Vivienda</dt><dd className="mt-1 break-words leading-relaxed">{vivienda?.direccion || "Por seleccionar"}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Concepto</dt><dd>{tipo === "tarifa" ? "Tarifa anual" : "Compra de chorro"}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Fecha</dt><dd>{formatFecha(fechaPago)}</dd></div>{tipo === "tarifa" && aniosAPagar.length > 0 && <div><dt className="text-muted-foreground">Años incluidos</dt><dd className="mt-1 break-words">{aniosAPagar.join(", ")}</dd></div>}</dl>
           <div className="grid gap-4 border-t border-border pt-4">
             <div className="space-y-1.5">
@@ -535,7 +531,7 @@ export function EmitirFacturaForm() {
             </div>
             <div className="space-y-1.5">
               <Label>Cantidad en letras</Label>
-              <p className="text-xs leading-relaxed text-muted-foreground">{letras || "El monto se calculará al elegir un pendiente."}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{letras || "—"}</p>
             </div>
           </div>
 
@@ -558,12 +554,12 @@ export function EmitirFacturaForm() {
               )}
             </Button>
           </div>
-          <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />Revisa los datos y confirma que recibiste el pago. Al emitir se registra el cobro y se genera su PDF. La numeración final se asigna al guardar.</p>
+          <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />Emite solo si recibiste el pago. El número final se asigna al guardar.</p>
       </div></FixedPaymentSummary></div></fieldset>
 
-      <section className="admin-surface w-[62%]"> 
-        <div className="admin-surface-header"><div><h2>Últimos recibos</h2><p className="mt-1 text-xs text-muted-foreground">Consulta los comprobantes emitidos recientemente.</p></div><Link href="/historial" className="text-xs font-medium text-primary">Ver historial</Link></div>
-        {loadingRecientes ? <p role="status" className="p-6 text-sm text-muted-foreground">Cargando recibos recientes…</p> : errorRecientes ? <div role="alert" className="space-y-3 p-6"><p className="text-sm text-muted-foreground">No se pudieron consultar los recibos recientes.</p><Button variant="outline" onClick={() => void cargarSiguienteYRecientes()}>Reintentar</Button></div> : recientes.length ? <ReceiptList recibos={recientes} onOpen={(r) => setPdfSource(sourceFromRecibo(r))} /> : <div className="p-6"><p className="text-sm font-medium">Aquí aparecerán tus comprobantes</p><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Después de emitir un cobro, podrás abrir su PDF desde esta lista o desde el historial.</p></div>}
+      <section data-testid="recibos-recientes" className="admin-surface min-w-0 w-full xl:w-[62%]">
+        <div className="admin-surface-header"><div><h2>Últimos recibos</h2></div><Link href="/historial" className="text-xs font-medium text-primary">Ver historial</Link></div>
+        {loadingRecientes ? <p role="status" className="p-6 text-sm text-muted-foreground">Cargando recibos recientes…</p> : errorRecientes ? <div role="alert" className="space-y-3 p-6"><p className="text-sm text-muted-foreground">No se pudieron consultar los recibos recientes.</p><Button variant="outline" onClick={() => void cargarSiguienteYRecientes()}>Reintentar</Button></div> : recientes.length ? <ReceiptList recibos={recientes} onOpen={(r) => setPdfSource(sourceFromRecibo(r))} /> : <div className="p-6"><p className="text-sm font-medium">Sin recibos registrados</p></div>}
       </section>
       <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>

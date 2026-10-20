@@ -25,6 +25,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const isAdmin = user?.rol === "administrador";
+  const isTesorero = user?.rol === "tesorero";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -87,7 +88,7 @@ export function AppSidebar() {
         </button>
       </div>
 
-      <div className={cn("px-3 pb-3", collapsed && "hidden")}>
+      {!isTesorero && <div className={cn("px-3 pb-3", collapsed && "hidden")}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -98,7 +99,7 @@ export function AppSidebar() {
             aria-label="Filtrar el menú"
           />
         </div>
-      </div>
+      </div>}
 
       <nav
         className="min-h-0 flex-1 space-y-5 overflow-y-auto px-2 pb-3"
@@ -142,7 +143,7 @@ export function AppSidebar() {
             <div className="min-w-0"><p className="truncate text-xs font-semibold text-foreground" title={user?.nombre}>{user?.nombre}</p><p className="mt-1 text-[10px] text-muted-foreground">{isAdmin ? "Administrador" : "Tesorero"} · AquaPay</p></div>
           </div>
         )}
-        {collapsed ? (
+        {!isTesorero && (collapsed ? (
           <Link
             href={cta.href}
             onClick={() => setMobileOpen(false)}
@@ -162,7 +163,7 @@ export function AppSidebar() {
             </span>
             {cta.label}
           </Link>
-        )}
+        ))}
         <button
           type="button"
           onClick={() => logout()}

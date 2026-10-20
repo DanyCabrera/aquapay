@@ -25,3 +25,14 @@ npm run test:e2e:tesorero -- --config baseUrl=http://localhost:3001
 ```
 
 El backend debe estar disponible en el puerto 4100, o configurado mediante `E2E_API_URL`. La suite verifica la sesión real del rol, consulta beneficiarios y pendientes sin emitir cobros, comprueba los tres módulos a 360, 768 y 1280px y revisa los temas y el logo. Los casos de paginación, exportación y errores utilizan respuestas interceptadas exclusivas de la prueba; no escriben recibos en la base de datos.
+
+
+## Revisión de UI/UX — limpieza de contenido (20 de octubre de 2026)
+
+- **Inicio:** título «Resumen de tesorería», periodo visible una sola vez, indicadores sin subtítulos repetidos. Se conservan ingresos, gráfico, tarifa, comunidad y últimos recibos. Se eliminan tarjetas de accesos duplicados y el bloque de instrucciones al pie.
+- **Emitir:** búsqueda con contador solo cuando hay una consulta, estados de carga breves, descripción opcional con una indicación corta y resumen sin mensajes de relleno. Se conservan validaciones, desglose de años/importe y advertencia de haber recibido el pago antes de emitir.
+- **Historial:** encabezado directo, filtros con etiquetas, estados vacíos breves y acciones pertinentes. Se elimina la guía sobre PDF/CSV. Se conserva el aviso al alcanzar 500 registros para no presentar una consulta parcial como completa. Limpiar filtros se desactiva cuando no hay filtros.
+- **Navegación:** el tesorero tiene tres módulos; se retira su buscador de menú y el botón de emisión duplicado al pie. Se mantienen identidad, rol, navegación, tema y cierre de sesión.
+- Los avisos de error y las opciones de reintento siguen presentes. Los ajustes del menú se limitan al rol tesorero.
+
+Validación: suites existentes de tesorería y emisión, revisión de capturas de escritorio/móvil, comprobación de tipos y lint de los componentes modificados. Las pruebas de emisión interceptan los cobros para no registrar pagos reales.

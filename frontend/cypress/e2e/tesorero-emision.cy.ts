@@ -64,4 +64,43 @@ describe("TESORERO — resumen fijo y descripción opcional", () => {
       expect(request.body.descripcionPago).to.eq("Detalle de la compra.");
     });
   });
+
+  for (const width of [320, 390, 633]) {
+    it(`adapta todo el formulario a un teléfono de ${width}px sin superposiciones`, () => {
+      cy.viewport(width, 844);
+      cy.get("main").scrollTo("top");
+      cy.get('[data-testid="recibo-correlativo"]').should("have.css", "position", "static");
+      cy.get('aside[aria-label="Resumen del cobro"]').should("have.css", "position", "static");
+      cy.get('[data-testid="recibo-correlativo"]').then(($number) => {
+        const bottom = $number[0].getBoundingClientRect().bottom;
+        cy.contains("h2", "Beneficiario y vivienda").should(($title) => {
+          expect($title[0].getBoundingClientRect().top).to.be.greaterThan(bottom);
+        });
+      });
+      cy.get(".emision-workspace input, .emision-workspace select, .emision-workspace textarea").each(($control) => {
+        expect($control[0].getBoundingClientRect().height).to.be.at.least(48);
+        cy.wrap($control).should("have.css", "font-size", "16px");
+      });
+      cy.get("#descripcion-pago").scrollIntoView().type("Detalle opcional desde el teléfono.");
+      cy.get('[data-testid="recibo-correlativo"]').should(($number) => {
+        expect($number[0].getBoundingClientRect().bottom).to.be.lessThan(0);
+      });
+      cy.contains('[role="radio"]', "Compra de chorro").click();
+      cy.get("#fecha-compra").should("have.value", new Intl.DateTimeFormat("en-CA", { timeZone: "America/Guatemala", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+      cy.contains('[role="radio"]', "Tarifa anual").click();
+      cy.get('aside[aria-label="Resumen del cobro"]').scrollIntoView();
+      cy.contains("button", /^Emitir$/).scrollIntoView().should("be.visible").and("be.enabled");
+      cy.get('[data-testid="recibos-recientes"]').should(($card) => {
+        const parent = $card[0].parentElement!.getBoundingClientRect();
+        expect(Math.abs($card[0].getBoundingClientRect().width - parent.width)).to.be.lessThan(1);
+      });
+      cy.get("main").should(($main) => expect($main[0].scrollWidth).to.be.at.most($main[0].clientWidth + 1));
+      if (width === 390) {
+        cy.get("#descripcion-pago").scrollIntoView();
+        cy.screenshot("emitir-telefono-descripcion", { capture: "viewport", scale: true });
+        cy.contains("h2", "Resumen del cobro").scrollIntoView();
+        cy.screenshot("emitir-telefono-resumen", { capture: "viewport", scale: true });
+      }
+    });
+  }
 });
