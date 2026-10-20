@@ -184,7 +184,7 @@ export default function LoginPage() {
       <div className="space-y-6">
         {mode === "entrar" ? (
           <>
-            <div><h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Inicia sesión</h1><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Ingresa con tu DPI y contraseña para continuar.</p></div>
+            <div><h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Inicia sesión</h1></div>
 
             <form onSubmit={onCredentialsSubmit} className="space-y-4" noValidate>
               <div className="space-y-1.5">
