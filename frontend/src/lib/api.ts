@@ -1,4 +1,12 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
+function resolveApiUrl() {
+  const raw = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100")
+    .trim()
+    .replace(/\/$/, "");
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+const API_URL = resolveApiUrl();
 
 export class ApiError extends Error {
   constructor(

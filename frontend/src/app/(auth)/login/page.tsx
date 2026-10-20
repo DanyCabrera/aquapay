@@ -140,8 +140,12 @@ export default function LoginPage() {
       });
       setSession(data.accessToken, data.usuario, { remember });
       router.push("/dashboard");
-    } catch {
-      setFormError("DPI o contraseña incorrectos.");
+    } catch (err) {
+      setFormError(
+        err instanceof ApiError && err.status !== 401
+          ? err.message
+          : "DPI o contraseña incorrectos.",
+      );
     } finally {
       setLoading(false);
     }
