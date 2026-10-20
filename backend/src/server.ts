@@ -12,8 +12,8 @@ async function bootstrap() {
   console.log(`Storage PDF: ${env.storageDir}`);
 
   const app = createApp();
-  app.listen(env.port, () => {
-    console.log(`AquaPay API en http://localhost:${env.port}`);
+  app.listen(env.port, "0.0.0.0", () => {
+    console.log(`AquaPay API escuchando en 0.0.0.0:${env.port}`);
   });
 }
 
