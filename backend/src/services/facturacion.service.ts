@@ -294,6 +294,7 @@ export class FacturacionService {
       urlPublica: publicPdfUrl(recibo.id),
       tamañoBytes: bytes.length,
       tipoMime: "application/pdf",
+      contenido: Buffer.from(bytes),
     });
 
     const saved = await manager.save(pdf);
@@ -409,16 +410,60 @@ export class FacturacionService {
   }
 
   async leerPdf(reciboId: string) {
-    const pdf = await this.pdfs().findOne({ where: { reciboId } });
-    if (!pdf?.rutaStorage) throw notFound("PDF no encontrado");
+    const pdf = await this.pdfs()
+      .createQueryBuilder("p")
+      .addSelect("p.contenido")
+      .where("p.recibo_id = :reciboId", { reciboId })
+      .getOne();
+    if (!pdf) throw notFound("PDF no encontrado");
+
+    if (pdf.contenido && pdf.contenido.length > 0) {
+      return {
+        bytes: pdf.contenido,
+        nombreArchivo: pdf.nombreArchivo,
+        tipoMime: pdf.tipoMime,
+      };
+    }
 
     const { readPdf } = await import("../lib/storage");
     try {
       const bytes = await readPdf(pdf.rutaStorage);
+      await this.pdfs().update(pdf.id, { contenido: Buffer.from(bytes) });
       return { bytes, nombreArchivo: pdf.nombreArchivo, tipoMime: pdf.tipoMime };
     } catch {
+      const bytes = await this.reconstruirPdf(reciboId);
+      await this.pdfs().update(pdf.id, {
+        contenido: Buffer.from(bytes),
+        tamañoBytes: bytes.length,
+      });
+      return { bytes, nombreArchivo: pdf.nombreArchivo, tipoMime: pdf.tipoMime };
+    }
+  }
+
+  private async reconstruirPdf(reciboId: string) {
+    const recibo = await this.obtenerRecibo(reciboId);
+    if (!recibo.vivienda?.usuario || !recibo.tesorero) {
       throw notFound("Archivo PDF no disponible en storage");
     }
+
+    const detalleLineas =
+      recibo.tipoCobro === "compra_chorro"
+        ? (recibo.pagosCompra ?? []).map(
+            (p) => `Compra de chorro: Q ${Number(p.montoPagado).toFixed(2)}`,
+          )
+        : [...(recibo.pagosAnuales ?? [])]
+            .sort((a, b) => a.anio - b.anio)
+            .map((p) => `Año ${p.anio}: Q ${Number(p.montoPagado).toFixed(2)}`);
+
+    return pdfService.generarRecibo({
+      recibo,
+      usuario: recibo.vivienda.usuario,
+      vivienda: recibo.vivienda,
+      tesorero: recibo.tesorero,
+      detalleLineas: detalleLineas.length
+        ? detalleLineas
+        : [recibo.descripcionPago],
+    });
   }
 
   async dashboard() {

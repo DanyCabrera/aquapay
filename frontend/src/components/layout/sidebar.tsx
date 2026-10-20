@@ -87,11 +87,6 @@ export function AppSidebar() {
         </button>
       </div>
 
-      {!collapsed && (
-        <div className="mx-4 mb-5 flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
-          {isAdmin ? <ShieldCheck className="size-4" /> : <Wallet className="size-4" />} {isAdmin ? "Panel administrador" : "Panel tesorero"}
-        </div>
-      )}
       <div className={cn("px-3 pb-3", collapsed && "hidden")}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />

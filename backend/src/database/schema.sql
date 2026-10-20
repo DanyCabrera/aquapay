@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS recibos_pdf (
   url_publica TEXT,
   tamano_bytes INTEGER NOT NULL DEFAULT 0,
   tipo_mime VARCHAR(80) NOT NULL DEFAULT 'application/pdf',
+  contenido BYTEA,
   fecha_subida TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

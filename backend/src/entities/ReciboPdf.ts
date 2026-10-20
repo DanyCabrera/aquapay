@@ -36,6 +36,9 @@ export class ReciboPdf {
   @Column({ name: "tipo_mime", type: "varchar", length: 80, default: "application/pdf" })
   tipoMime!: string;
 
+  @Column({ type: "bytea", nullable: true, select: false })
+  contenido!: Buffer | null;
+
   @CreateDateColumn({ name: "fecha_subida", type: "timestamptz" })
   fechaSubida!: Date;
 }

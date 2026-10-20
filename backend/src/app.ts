@@ -12,7 +12,12 @@ import reportesRoutes from "./routes/reportes.routes";
 export function createApp() {
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      // El frontend vive en otro dominio (Vercel). same-origin bloquea el fetch.
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
   app.set("trust proxy", 1);
   app.use(
     cors({
