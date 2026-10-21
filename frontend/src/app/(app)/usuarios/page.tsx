@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageStack, PageIntro } from "@/components/layout/page-stack";
-import { formatDpi, formatFecha } from "@/lib/format";
+import { formatDpi, formatFecha, formatRecibo } from "@/lib/format";
 import { exportCsv } from "@/lib/export-csv";
 import { cn } from "@/lib/utils";
 import { UsuarioAccionDialog, type UsuarioAccionPendiente } from "@/components/usuarios/usuario-accion-dialog";
@@ -65,10 +65,17 @@ export default function UsuariosPage() {
   async function confirmarAccion({ usuario, accion }: UsuarioAccionPendiente) {
     if (!isAdmin) return;
     if (accion === "eliminar") {
-      await api(`/api/usuarios/${usuario.id}`, { method: "DELETE" });
+      const data = await api<{ siguiente?: { numeroRecibo: string } }>(
+        `/api/usuarios/${usuario.id}?eliminarRecibos=true`,
+        { method: "DELETE" },
+      );
       setLista((prev) => prev.filter((u) => u.id !== usuario.id));
       setPage((actual) => Math.min(actual, Math.max(1, Math.ceil((filtered.length - 1) / pageSize))));
-      toast.success("Beneficiario eliminado");
+      toast.success(
+        data.siguiente
+          ? `Beneficiario eliminado. Siguiente correlativo: ${formatRecibo(data.siguiente.numeroRecibo)}`
+          : "Beneficiario eliminado",
+      );
     } else {
       const updated = await api<UsuarioComunidad>(
         `/api/usuarios/${usuario.id}/${accion}`,

@@ -1,9 +1,11 @@
 "use client";
 
+import { EliminarReciboDialog } from "@/components/facturacion/eliminar-recibo-dialog";
+
 import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, Receipt, Search, Users, Wallet } from "lucide-react";
+import { ArrowRight, Receipt, Search, Trash2, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import type { Recibo } from "@/lib/types";
@@ -113,6 +115,7 @@ function PagosConsulta() {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [pdfSource, setPdfSource] = useState<ReciboPdfSource | null>(null);
   const consultaRef = useRef(0);
+  const [reciboEliminar, setReciboEliminar] = useState<Recibo | null>(null);
 
   async function cargar(search = q, year = anio) {
     const consulta = ++consultaRef.current;
@@ -322,7 +325,7 @@ function PagosConsulta() {
                       <TableHead>Tipo</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Tesorero</TableHead>
-                      <TableHead>PDF</TableHead>
+                      <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -346,13 +349,25 @@ function PagosConsulta() {
                           {r.tesorero?.nombre ?? "—"}
                         </TableCell>
                         <TableCell>
-                          <button
-                            type="button"
-                            onClick={() => setPdfSource(sourceFromRecibo(r))}
-                            className="text-sm text-primary transition-ui hover:underline"
-                          >
-                            Ver PDF
-                          </button>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPdfSource(sourceFromRecibo(r))}
+                              className="text-sm text-primary transition-ui hover:underline"
+                            >
+                              Ver PDF
+                            </button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              aria-label={`Eliminar recibo ${formatRecibo(r.numeroRecibo)}`}
+                              onClick={() => setReciboEliminar(r)}
+                            >
+                              <Trash2 className="size-4" />
+                              Eliminar
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -363,6 +378,12 @@ function PagosConsulta() {
           ) : null}
         </>
       )}
+      <EliminarReciboDialog recibo={reciboEliminar} onClose={() => setReciboEliminar(null)} onDeleted={(id) => {
+        consultaRef.current++;
+        setRecibos((lista) => lista.filter((r) => r.id !== id));
+        setPdfSource(null);
+        void cargar();
+      }} />
       <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
   );

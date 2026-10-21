@@ -1,3 +1,4 @@
+import { bloquearRecibos, borrarRecibos } from "./recibos-transaccion";
 import { ILike, In, QueryFailedError } from "typeorm";
 import { AppDataSource } from "../database/data-source";
 import { UsuarioComunidad } from "../entities/UsuarioComunidad";
@@ -14,6 +15,7 @@ import {
   CrearChorroDto,
   CrearViviendaDto,
 } from "../dto/vivienda.dto";
+import { siguienteCorrelativo } from "../utils/correlativo";
 import { normalizarDpi } from "../utils/dpi";
 import { conflict, notFound } from "../utils/errors";
 
@@ -97,9 +99,10 @@ export class UsuariosService {
     return this.actualizar(id, { activo: true });
   }
 
-  async eliminar(id: string) {
+  async eliminar(id: string, eliminarRecibos = false) {
     try {
       return await AppDataSource.transaction(async (manager) => {
+        await bloquearRecibos(manager);
         const usuarios = manager.getRepository(UsuarioComunidad);
         const usuario = await usuarios.findOne({
           where: { id },
@@ -111,14 +114,27 @@ export class UsuariosService {
         const viviendaIds = viviendas.map((vivienda) => vivienda.id);
         if (viviendaIds.length) {
           const tieneRecibos = await manager.getRepository(Recibo).existsBy({ viviendaId: In(viviendaIds) });
-          if (tieneRecibos) {
+          if (tieneRecibos && !eliminarRecibos) {
             throw conflict("Este beneficiario tiene recibos asociados y no se puede eliminar. Puede desactivarlo para conservar su historial.");
+          }
+          if (tieneRecibos) {
+            const recibos = await manager.getRepository(Recibo).findBy({ viviendaId: In(viviendaIds) });
+            await borrarRecibos(manager, recibos.map((r) => r.id));
           }
           await manager.getRepository(Chorro).delete({ viviendaId: In(viviendaIds) });
           await manager.getRepository(Vivienda).delete({ usuarioId: id });
         }
         await usuarios.delete(id);
-        return { id, eliminado: true };
+        const anio = new Date().getFullYear();
+        const ultimo = await manager.getRepository(Recibo).findOne({
+          where: { anioRecibo: anio },
+          order: { secuencia: "DESC" },
+        });
+        return {
+          id,
+          eliminado: true,
+          siguiente: siguienteCorrelativo(ultimo?.secuencia, anio),
+        };
       });
     } catch (err) {
       // Una referencia creada mientras se elimina también debe conservarse.

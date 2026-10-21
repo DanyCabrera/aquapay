@@ -1,3 +1,4 @@
+import { bloquearRecibos, borrarRecibos } from "./recibos-transaccion";
 import { EntityManager, In } from "typeorm";
 import { AppDataSource } from "../database/data-source";
 import { Chorro } from "../entities/Chorro";
@@ -13,6 +14,7 @@ import {
 } from "../dto/facturacion.dto";
 import { publicPdfUrl, savePdf } from "../lib/storage";
 import { numeroALetras } from "../utils/numero-a-letras";
+import { siguienteCorrelativo } from "../utils/correlativo";
 import { badRequest, conflict, notFound } from "../utils/errors";
 import { configService } from "./config.service";
 import { pdfService } from "./pdf.service";
@@ -26,14 +28,12 @@ export class FacturacionService {
   private pdfs = () => AppDataSource.getRepository(ReciboPdf);
   private perfiles = () => AppDataSource.getRepository(Perfil);
 
-  private async siguienteNumero(anio: number) {
-    const ultimo = await this.recibos().findOne({
+  private async siguienteNumero(anio: number, manager?: EntityManager) {
+    const ultimo = await (manager ? manager.getRepository(Recibo) : this.recibos()).findOne({
       where: { anioRecibo: anio },
       order: { secuencia: "DESC" },
     });
-    const secuencia = (ultimo?.secuencia ?? 0) + 1;
-    const numeroRecibo = String(secuencia).padStart(3, "0");
-    return { secuencia, numeroRecibo, anioRecibo: anio };
+    return siguienteCorrelativo(ultimo?.secuencia, anio);
   }
 
   async aniosPendientes(viviendaId: string) {
@@ -142,8 +142,6 @@ export class FacturacionService {
     const totalChorros = info.totalChorros;
     const total = tarifa * totalChorros * dto.anios.length;
     const anioDoc = new Date().getFullYear();
-    const { secuencia, numeroRecibo, anioRecibo } =
-      await this.siguienteNumero(anioDoc);
     const lugarPago = await configService.getLugarPago();
     const fechaPago = dto.fechaPago ?? new Date().toISOString().slice(0, 10);
     const descripcion =
@@ -151,6 +149,8 @@ export class FacturacionService {
       `Pago tarifa anual ${dto.anios.sort().join(", ")} — ${totalChorros} chorro(s)`;
 
     return AppDataSource.transaction(async (manager) => {
+      await bloquearRecibos(manager);
+      const { secuencia, numeroRecibo, anioRecibo } = await this.siguienteNumero(anioDoc, manager);
       const recibo = manager.create(Recibo, {
         numeroRecibo,
         anioRecibo,
@@ -222,12 +222,12 @@ export class FacturacionService {
     }
 
     const anioDoc = new Date().getFullYear();
-    const { secuencia, numeroRecibo, anioRecibo } =
-      await this.siguienteNumero(anioDoc);
     const lugarPago = await configService.getLugarPago();
     const fechaPago = dto.fechaPago ?? new Date().toISOString().slice(0, 10);
 
     return AppDataSource.transaction(async (manager) => {
+      await bloquearRecibos(manager);
+      const { secuencia, numeroRecibo, anioRecibo } = await this.siguienteNumero(anioDoc, manager);
       const recibo = manager.create(Recibo, {
         numeroRecibo,
         anioRecibo,
@@ -276,7 +276,7 @@ export class FacturacionService {
     manager: EntityManager,
   ) {
     const nombre = `recibo-${recibo.anioRecibo}-${recibo.numeroRecibo}.pdf`;
-    const ruta = `${recibo.anioRecibo}/${nombre}`;
+    const ruta = `${recibo.anioRecibo}/${recibo.id}/${nombre}`;
 
     try {
       await savePdf(ruta, bytes);
@@ -387,6 +387,17 @@ export class FacturacionService {
         if (r.pdf) r.pdf.urlPublica = publicPdfUrl(r.id);
         return r;
       });
+  }
+
+  async eliminarRecibo(id: string) {
+    return AppDataSource.transaction(async (manager) => {
+      await bloquearRecibos(manager);
+      const recibo = await manager.getRepository(Recibo).findOneBy({ id });
+      if (!recibo) throw notFound("Recibo no encontrado");
+      await borrarRecibos(manager, [id]);
+      const siguiente = await this.siguienteNumero(recibo.anioRecibo, manager);
+      return { id, eliminado: true, siguiente };
+    });
   }
 
   async obtenerRecibo(id: string) {

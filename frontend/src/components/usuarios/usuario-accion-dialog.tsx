@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck, Trash2, UserRoundCheck, UserRoundX } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { formatDpi } from "@/lib/format";
@@ -32,13 +32,13 @@ const ACCIONES = {
     nota: "Podrá activarlo nuevamente cuando lo necesite.",
   },
   eliminar: {
-    titulo: "¿Eliminar beneficiario?",
-    descripcion: "Se eliminarán sus datos, viviendas y chorros. Esta acción no se puede deshacer.",
+    titulo: "¿Eliminar beneficiario y sus recibos?",
+    descripcion: "Se eliminarán el beneficiario, sus viviendas, chorros, recibos y pagos asociados. Esta acción no se puede deshacer.",
     boton: "Sí, eliminar",
     progreso: "Eliminando…",
     icono: Trash2,
     color: "bg-destructive/10 text-destructive",
-    nota: "Si tiene recibos o pagos asociados, deberá desactivarlo para conservar su historial.",
+    nota: "El siguiente correlativo será el mayor recibo restante de cada año más uno. Si no queda ninguno, volverá a 001. Los números de los recibos conservados no cambian.",
   },
 } as const;
 
@@ -49,17 +49,30 @@ export function UsuarioAccionDialog({ pendiente, onClose, onConfirm }: {
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const contenido = ACCIONES[pendiente?.accion ?? "desactivar"];
+  const [confirmarRecibos, setConfirmarRecibos] = useState(false);
+  const [vista, setVista] = useState<UsuarioAccionPendiente | null>(null);
+  const contenido = ACCIONES[vista?.accion ?? "desactivar"];
   const Icono = contenido.icono;
+  const esEliminar = vista?.accion === "eliminar";
+
+  useEffect(() => {
+    if (pendiente) {
+      setVista(pendiente);
+      setConfirmarRecibos(false);
+      setError(null);
+    }
+  }, [pendiente]);
 
   function cerrar() {
     if (busy) return;
     setError(null);
+    setConfirmarRecibos(false);
     onClose();
   }
 
   async function confirmar() {
     if (!pendiente || busy) return;
+    if (esEliminar && !confirmarRecibos) return;
     setBusy(true);
     setError(null);
     try {
@@ -84,20 +97,32 @@ export function UsuarioAccionDialog({ pendiente, onClose, onConfirm }: {
             <DialogDescription className="leading-relaxed">{contenido.descripcion}</DialogDescription>
           </div>
           <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
-            <p className="break-words font-semibold">{pendiente?.usuario.nombreCompleto}</p>
-            <p className="mt-1 font-mono text-caption text-muted-foreground">DPI {formatDpi(pendiente?.usuario.dpi ?? "")}</p>
+            <p className="break-words font-semibold">{vista?.usuario.nombreCompleto}</p>
+            <p className="mt-1 font-mono text-caption text-muted-foreground">DPI {formatDpi(vista?.usuario.dpi ?? "")}</p>
           </div>
-          <p className="flex items-start gap-2 text-caption leading-relaxed text-muted-foreground">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {contenido.nota}
-          </p>
+          {esEliminar ? (
+            <label className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm leading-relaxed">
+              <input
+                type="checkbox"
+                className="mt-1 size-4 shrink-0 accent-destructive"
+                checked={confirmarRecibos}
+                onChange={(e) => setConfirmarRecibos(e.target.checked)}
+              />
+              <span>También eliminar sus recibos. El siguiente correlativo será el mayor restante del año más uno, o 001 si no queda ninguno. Los números de los recibos conservados no cambian.</span>
+            </label>
+          ) : (
+            <p className="flex items-start gap-2 text-caption leading-relaxed text-muted-foreground">
+              <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+              {contenido.nota}
+            </p>
+          )}
           {error && <p role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
         </div>
         <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/30 px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
           <Button variant="outline" disabled={busy} onClick={cerrar}>Cancelar</Button>
           <Button
-            variant={pendiente?.accion === "eliminar" ? "destructive" : "default"}
-            disabled={busy}
+            variant={esEliminar ? "destructive" : "default"}
+            disabled={busy || !pendiente || (esEliminar && !confirmarRecibos)}
             onClick={() => void confirmar()}
           >
             {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}

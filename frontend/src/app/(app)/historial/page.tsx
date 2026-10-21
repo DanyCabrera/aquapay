@@ -15,6 +15,7 @@ import { nativeSelectClass } from "@/components/layout/page-header";
 import { LedgerStats } from "@/components/layout/ledger-stats";
 import { formatQuetzales } from "@/lib/format";
 import { ReceiptList } from "@/components/tesorero/receipt-list";
+import { EliminarReciboDialog } from "@/components/facturacion/eliminar-recibo-dialog";
 import { ReciboPdfViewer, sourceFromRecibo, type ReciboPdfSource } from "@/components/facturacion/recibo-pdf-viewer";
 
 const ANIO_ACTUAL = new Date().getFullYear();
@@ -30,6 +31,7 @@ export default function HistorialTesoreroPage() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [pdf, setPdf] = useState<ReciboPdfSource | null>(null);
+  const [reciboEliminar, setReciboEliminar] = useState<Recibo | null>(null);
   const requestId = useRef(0);
   const pageSize = 12;
   const hayFiltro = Boolean(consulta.q.trim() || consulta.anio || tipo);
@@ -76,9 +78,13 @@ export default function HistorialTesoreroPage() {
         <Button type="submit" disabled={loading} className="h-11"><Filter className="size-4" />Buscar</Button>
       </form>
       <div className="flex flex-wrap items-center justify-between gap-2 border-y border-border bg-muted/30 px-5 py-3"><p className="text-xs text-muted-foreground" aria-live="polite">{loading ? "Consultando movimientos…" : error ? "Consulta no disponible" : `${filtrados.length} ${filtrados.length === 1 ? "recibo" : "recibos"} · ${consulta.anio || "Todos los años"}${consulta.q ? ` · ${consulta.q}` : ""}`}</p><Button variant="ghost" size="sm" onClick={limpiar} disabled={loading || !(q || anio || tipo || hayFiltro)}>Limpiar filtros</Button></div>
-      {loading ? <div className="space-y-4 p-5">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div> : error ? <div role="alert" className="space-y-4 p-6"><p className="text-sm text-destructive">{error}</p><Button variant="outline" onClick={() => void cargar(q, anio)}>Reintentar</Button></div> : !pageItems.length ? <EmptyState className="px-6" title={hayFiltro ? "Sin coincidencias" : "Sin recibos registrados"} description={hayFiltro ? "No hay recibos con estos filtros." : undefined} action={hayFiltro ? <Button variant="outline" onClick={limpiar}>Ver todos los recibos</Button> : <Link href="/facturacion" className={buttonVariants({ variant: "outline" })}>Emitir recibo</Link>} /> : <><ReceiptList recibos={pageItems} onOpen={(r) => setPdf(sourceFromRecibo(r))} /><div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-5"><p className="text-xs text-muted-foreground">Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtrados.length)} de {filtrados.length}</p><div className="flex items-center gap-2"><Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button><span className="text-xs tabular-nums">{page} / {totalPages}</span><Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button></div></div></>}
+      {loading ? <div className="space-y-4 p-5">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div> : error ? <div role="alert" className="space-y-4 p-6"><p className="text-sm text-destructive">{error}</p><Button variant="outline" onClick={() => void cargar(q, anio)}>Reintentar</Button></div> : !pageItems.length ? <EmptyState className="px-6" title={hayFiltro ? "Sin coincidencias" : "Sin recibos registrados"} description={hayFiltro ? "No hay recibos con estos filtros." : undefined} action={hayFiltro ? <Button variant="outline" onClick={limpiar}>Ver todos los recibos</Button> : <Link href="/facturacion" className={buttonVariants({ variant: "outline" })}>Emitir recibo</Link>} /> : <><ReceiptList recibos={pageItems} onOpen={(r) => setPdf(sourceFromRecibo(r))} onDelete={setReciboEliminar} /><div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-5"><p className="text-xs text-muted-foreground">Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtrados.length)} de {filtrados.length}</p><div className="flex items-center gap-2"><Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button><span className="text-xs tabular-nums">{page} / {totalPages}</span><Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button></div></div></>}
       {recibos.length >= 500 && !loading && !error && <p className="border-t border-border p-5 text-xs text-muted-foreground">Consulta limitada a los 500 recibos más recientes. Filtra para ver otros periodos.</p>}
     </section>
+    <EliminarReciboDialog recibo={reciboEliminar} onClose={() => setReciboEliminar(null)} onDeleted={(id) => {
+      setRecibos((lista) => lista.filter((r) => r.id !== id));
+      setPdf(null);
+    }} />
     <ReciboPdfViewer source={pdf} onClose={() => setPdf(null)} />
   </PageStack>;
 }

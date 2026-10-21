@@ -113,6 +113,13 @@ router.get("/recibos", requireRoles("tesorero", "administrador"), async (req, re
   }
 });
 
+router.delete("/recibos/:id", requireRoles("tesorero", "administrador"), async (req, res, next) => {
+  try {
+    const data = await facturacionService.eliminarRecibo(req.params.id);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+});
+
 router.get("/recibos/:id", async (req, res, next) => {
   try {
     const data = await facturacionService.obtenerRecibo(req.params.id);

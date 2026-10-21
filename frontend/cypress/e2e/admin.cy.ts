@@ -307,13 +307,16 @@ describe("ADMIN — panel, permisos y gestión", () => {
       cy.contains("button", /^Eliminar$/).click();
     });
     cy.get('[role="alertdialog"]').should("contain.text", "Esta acción no se puede deshacer.");
+    cy.get('[role="alertdialog"]').should("contain.text", "También eliminar sus recibos");
+    cy.get('[role="alertdialog"]').contains("button", /^Sí, eliminar$/).should("be.disabled");
     cy.screenshot("admin-confirmar-eliminacion", { capture: "viewport" });
     cy.get('[role="alertdialog"]').contains("button", /^Cancelar$/).click();
     cy.get("main").contains("tr", nombre).should("exist").within(() => {
       cy.contains("button", /^Eliminar$/).click();
     });
     cy.intercept("DELETE", "**/api/usuarios/*").as("eliminarPersona");
-    cy.get('[role="alertdialog"]').contains("button", /^Sí, eliminar$/).click();
+    cy.get('[role="alertdialog"]').contains("label", "También eliminar sus recibos").click();
+    cy.get('[role="alertdialog"]').contains("button", /^Sí, eliminar$/).should("be.enabled").click();
     cy.wait("@eliminarPersona").then(({ response }) => {
       expect(response?.statusCode).to.eq(200);
       expect(response?.body.data.eliminado).to.eq(true);

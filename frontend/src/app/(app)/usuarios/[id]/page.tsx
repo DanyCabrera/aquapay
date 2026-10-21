@@ -24,7 +24,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageStack, PageBackLink } from "@/components/layout/page-stack";
 import { cn } from "@/lib/utils";
 import { PRECIO_CHORRO_UNITARIO } from "@/lib/navigation";
-import { formatDpi, formatFecha, formatQuetzales } from "@/lib/format";
+import { formatDpi, formatFecha, formatQuetzales, formatRecibo } from "@/lib/format";
 import { UsuarioAccionDialog, type UsuarioAccionPendiente } from "@/components/usuarios/usuario-accion-dialog";
 
 export default function UsuarioDetallePage() {
@@ -146,8 +146,15 @@ export default function UsuarioDetallePage() {
   async function confirmarAccion({ usuario, accion }: UsuarioAccionPendiente) {
     if (!isAdmin) return;
     if (accion === "eliminar") {
-      await api(`/api/usuarios/${usuario.id}`, { method: "DELETE" });
-      toast.success("Beneficiario eliminado");
+      const data = await api<{ siguiente?: { numeroRecibo: string } }>(
+        `/api/usuarios/${usuario.id}?eliminarRecibos=true`,
+        { method: "DELETE" },
+      );
+      toast.success(
+        data.siguiente
+          ? `Beneficiario eliminado. Siguiente correlativo: ${formatRecibo(data.siguiente.numeroRecibo)}`
+          : "Beneficiario eliminado",
+      );
       router.push("/usuarios");
     } else {
       const updated = await api<UsuarioComunidad>(`/api/usuarios/${usuario.id}/${accion}`, { method: "POST" });

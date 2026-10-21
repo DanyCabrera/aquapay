@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, House, Loader2, Receipt, Search, ShieldCheck } from "lucide-react";
 import { ReceiptList } from "@/components/tesorero/receipt-list";
+import { EliminarReciboDialog } from "@/components/facturacion/eliminar-recibo-dialog";
 import { FixedPaymentSummary } from "./fixed-payment-summary";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
@@ -68,6 +69,7 @@ export function EmitirFacturaForm() {
   const [loading, setLoading] = useState(false);
   const [recientes, setRecientes] = useState<Recibo[]>([]);
   const [pdfSource, setPdfSource] = useState<ReciboPdfSource | null>(null);
+  const [reciboEliminar, setReciboEliminar] = useState<Recibo | null>(null);
   const [loadingUsuarios, setLoadingUsuarios] = useState(true);
   const [loadingPendientes, setLoadingPendientes] = useState(false);
   const [errorUsuarios, setErrorUsuarios] = useState("");
@@ -562,8 +564,12 @@ export function EmitirFacturaForm() {
 
       <section data-testid="recibos-recientes" className="admin-surface min-w-0 w-full xl:w-[62%]">
         <div className="admin-surface-header"><div><h2>Últimos recibos</h2></div><Link href="/historial" className="text-xs font-medium text-primary">Ver historial</Link></div>
-        {loadingRecientes ? <p role="status" className="p-6 text-sm text-muted-foreground">Cargando recibos recientes…</p> : errorRecientes ? <div role="alert" className="space-y-3 p-6"><p className="text-sm text-muted-foreground">No se pudieron consultar los recibos recientes.</p><Button variant="outline" onClick={() => void cargarSiguienteYRecientes()}>Reintentar</Button></div> : recientes.length ? <ReceiptList recibos={recientes} onOpen={(r) => setPdfSource(sourceFromRecibo(r))} /> : <div className="p-6"><p className="text-sm font-medium">Sin recibos registrados</p></div>}
+        {loadingRecientes ? <p role="status" className="p-6 text-sm text-muted-foreground">Cargando recibos recientes…</p> : errorRecientes ? <div role="alert" className="space-y-3 p-6"><p className="text-sm text-muted-foreground">No se pudieron consultar los recibos recientes.</p><Button variant="outline" onClick={() => void cargarSiguienteYRecientes()}>Reintentar</Button></div> : recientes.length ? <ReceiptList recibos={recientes} onOpen={(r) => setPdfSource(sourceFromRecibo(r))} onDelete={setReciboEliminar} /> : <div className="p-6"><p className="text-sm font-medium">Sin recibos registrados</p></div>}
       </section>
+      <EliminarReciboDialog recibo={reciboEliminar} onClose={() => setReciboEliminar(null)} onDeleted={() => {
+        setPdfSource(null);
+        void cargarSiguienteYRecientes();
+      }} />
       <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
   );
