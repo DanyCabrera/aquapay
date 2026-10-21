@@ -17,7 +17,7 @@ export default defineConfig({
   screenshotOnRunFailure: true,
   e2e: {
     baseUrl: process.env.E2E_BASE_URL ?? "http://localhost:3000",
-    specPattern: "cypress/e2e/{admin,tesorero,tesorero-emision,auth-design}.cy.ts",
+    specPattern: "cypress/e2e/{admin,admin-qa,tesorero,tesorero-emision,tesorero-qa,auth-design}.cy.ts",
     supportFile: false,
     testIsolation: true,
   },

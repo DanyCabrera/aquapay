@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, FileText, Receipt, Search, ShieldCheck, Users, Wallet } from "lucide-react";
+import { ArrowRight, Receipt, Search, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import type { Recibo } from "@/lib/types";
@@ -158,7 +158,7 @@ function PagosConsulta() {
 
   return (
     <PageStack>
-      <PageIntro title="Consulta de pagos" description="Revise los pagos de la comunidad, encuentre un beneficiario y consulte sus recibos. Toda la información proviene de cobros registrados por tesorería." />
+      <PageIntro title="Consulta de pagos" />
       <div className="grid gap-4 sm:grid-cols-3">{[
         { label: "Personas con pago", value: formatEntero(pagadores.length), icon: Users, color: "text-blue-600 bg-blue-500/10" },
         { label: "Recibos en la consulta", value: formatEntero(recibos.length), icon: Receipt, color: "text-violet-600 bg-violet-500/10" },
@@ -217,16 +217,16 @@ function PagosConsulta() {
           ))}
         </div>
       ) : error ? <div role="alert" className="admin-surface p-6 text-sm text-destructive">{error}<Button variant="outline" className="ml-3" onClick={() => void cargar()}>Reintentar</Button></div> : pagadores.length === 0 ? (
-        <div className="admin-surface grid items-start gap-6 p-6 lg:grid-cols-[1.2fr_1fr]"><EmptyState
+        <div className="admin-surface p-6"><EmptyState
           className="py-3"
-          title={q.trim() ? "Nadie coincide con esa búsqueda" : "Nadie ha pagado aún"}
+          title={q.trim() ? "Sin coincidencias" : "Sin pagos registrados"}
           description={
             q.trim()
               ? "Pruebe otro nombre, DPI o año."
-              : "El padrón ya está disponible para gestionar el servicio. Los pagos aparecerán cuando tesorería registre los primeros cobros."
+              : "No hay pagos en el período seleccionado."
           }
           action={<Link href="/usuarios" className="inline-flex items-center gap-2 text-sm font-medium text-primary">Ver beneficiarios <ArrowRight className="size-4" /></Link>}
-        /><div className="rounded-xl bg-muted/40 p-5"><div className="mb-4 flex items-center gap-2 text-sm font-semibold"><FileText className="size-4 text-primary" />Cómo consultar un pago</div><ol className="space-y-4">{["Escriba el nombre o DPI del beneficiario.", "Seleccione el año que necesita revisar.", "Abra los recibos encontrados para consultar su PDF."].map((paso, i) => <li key={paso} className="flex gap-3 text-xs leading-relaxed text-muted-foreground"><span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-card font-semibold text-primary">{i + 1}</span>{paso}</li>)}</ol></div></div>
+        /></div>
       ) : (
         <>
           <p className="text-caption text-muted-foreground">
@@ -363,7 +363,6 @@ function PagosConsulta() {
           ) : null}
         </>
       )}
-      <p className="flex items-center gap-2 text-[11px] text-muted-foreground"><ShieldCheck className="size-4 shrink-0" />Consulta de administrador. La emisión y el registro de cobros corresponden a tesorería.</p>
       <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
   );

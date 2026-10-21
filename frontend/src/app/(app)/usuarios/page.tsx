@@ -85,7 +85,6 @@ export default function UsuariosPage() {
     <PageStack>
       <PageIntro
         title="Beneficiarios"
-        description="Cada hogar, su información en orden. Administre el padrón, las viviendas y las conexiones de agua de la comunidad."
         action={
           isAdmin ? (
             <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => exportCsv("beneficiarios-aquapay.csv", ["Nombre", "DPI", "Teléfono", "Dirección", "Estado"], filtered.map((u) => [u.nombreCompleto, u.dpi, u.telefono ?? "", u.viviendas?.map((v) => v.direccion).join("; ") ?? "", u.activo ? "Activo" : "Inactivo"]))} disabled={loading || !filtered.length}><Download className="size-4" />Exportar CSV</Button><Link
@@ -148,7 +147,7 @@ export default function UsuariosPage() {
           <div className="p-6">
             <EmptyState
               title={q || estado !== "todos" ? "Sin coincidencias" : "Sin beneficiarios"}
-              description={q || estado !== "todos" ? "Pruebe otro nombre, DPI o filtro de estado." : "Registre a la persona; la vivienda y el chorro se anotan en el mismo alta."}
+              description={q || estado !== "todos" ? "Sin resultados con estos filtros." : undefined}
               action={
                 isAdmin ? (
                   <Link href="/usuarios/nuevo">

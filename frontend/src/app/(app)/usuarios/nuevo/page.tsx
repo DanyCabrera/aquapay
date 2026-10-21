@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { PageBackLink } from "@/components/layout/page-stack";
-import { Check, Droplets, House, UserRound } from "lucide-react";
+import { Check } from "lucide-react";
 import { PRECIO_CHORRO_UNITARIO } from "@/lib/navigation";
-import { formatQuetzales } from "@/lib/format";
+import { formatDpi, formatQuetzales } from "@/lib/format";
 
 const STEPS = [
   { id: 1, label: "Persona" },
@@ -42,7 +42,6 @@ export default function NuevoBeneficiarioPage() {
     fechaInstalacion: new Date().toISOString().slice(0, 10),
   });
 
-  const stepMeta = STEPS[paso - 1];
   const totalCompra = Number(instalacion.cantidad) * PRECIO_CHORRO_UNITARIO;
 
   async function submitPaso1(e: FormEvent) {
@@ -148,10 +147,10 @@ export default function NuevoBeneficiarioPage() {
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 space-y-3">
         <PageBackLink href="/usuarios">Volver a beneficiarios</PageBackLink>
-        <div><p className="admin-kicker mb-2">Registro de comunidad</p><h2 className="text-2xl font-semibold tracking-tight">Un nuevo hogar conectado</h2><p className="mt-2 text-sm text-muted-foreground">Complete la información de la persona, su vivienda y la instalación del servicio.</p></div>
+        <div><h2 className="text-2xl font-semibold tracking-tight">Registrar beneficiario</h2></div>
       </div>
       <div className="mb-6 grid grid-cols-3 gap-2">{STEPS.map((step) => <div key={step.id} aria-current={paso === step.id ? "step" : undefined} className={`flex items-center gap-2 rounded-xl border p-3 text-xs ${paso === step.id ? "border-primary/40 bg-primary/5 text-primary" : "border-border bg-card text-muted-foreground"}`}><span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${paso >= step.id ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{paso > step.id ? <Check className="size-3.5" /> : step.id}</span><span className="font-medium">{step.label}</span></div>)}</div>
-      <div className="grid items-start gap-5 lg:grid-cols-[1.6fr_1fr]"><section className="admin-surface p-6 sm:p-7"><div className="mb-6 border-b border-border pb-5"><p className="admin-kicker">Paso {paso} de 3</p><h2 className="mt-2 text-lg">{paso === 1 ? "Datos del beneficiario" : paso === 2 ? "Información de la vivienda" : "Instalación del chorro"}</h2></div>
+      <div className="mx-auto w-full max-w-3xl"><section className="admin-surface p-6 sm:p-7"><div className="mb-6 border-b border-border pb-5"><p className="admin-kicker">Paso {paso} de 3</p><h2 className="mt-2 text-lg">{paso === 1 ? "Datos del beneficiario" : paso === 2 ? "Información de la vivienda" : "Instalación del chorro"}</h2></div>
       {paso === 1 && (
         <form
           onSubmit={submitPaso1}
@@ -180,16 +179,17 @@ export default function NuevoBeneficiarioPage() {
                 id="dpi"
                 className="h-10 font-mono"
                 placeholder="0000 00000 0000"
-                value={personal.dpi}
+                value={formatDpi(personal.dpi, "")}
                 onChange={(e) =>
                   setPersonal({
                     ...personal,
-                    dpi: e.target.value.replace(/\D/g, ""),
+                    dpi: e.target.value.replace(/\D/g, "").slice(0, 13),
                   })
                 }
                 required
-                minLength={13}
-                maxLength={20}
+                inputMode="numeric"
+                pattern="[0-9]{4} [0-9]{5} [0-9]{4}"
+                maxLength={15}
                 disabled={!!usuarioId}
               />
             </div>
@@ -374,6 +374,6 @@ export default function NuevoBeneficiarioPage() {
           </div>
         </form>
       )}
-      </section><aside className="admin-module-help"><span className="mb-4 flex size-10 items-center justify-center rounded-xl bg-primary/5 text-primary">{paso === 1 ? <UserRound className="size-5" /> : paso === 2 ? <House className="size-5" /> : <Droplets className="size-5" />}</span><h3>{stepMeta.label}: información importante</h3><p className="mt-3 text-xs leading-relaxed text-muted-foreground">{paso === 1 ? "Escriba el nombre completo y revise los 13 dígitos del DPI. El teléfono facilita el contacto con la familia." : paso === 2 ? "Use una dirección precisa para identificar la vivienda. El año de inicio define desde cuándo corresponde revisar el servicio anual." : "Revise la cantidad de chorros y la fecha de instalación. La compra del chorro se registra por separado de la tarifa anual."}</p><div className="mt-5 border-t border-border pt-4"><p className="admin-kicker">Comunidad</p><p className="mt-2 text-xs font-medium">Aldea Sibaná</p><p className="mt-1 text-[11px] text-muted-foreground">El Asintal, Retalhuleu</p></div></aside></div></div>
+      </section></div></div>
   );
 }

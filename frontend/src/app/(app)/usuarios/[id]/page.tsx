@@ -37,6 +37,8 @@ export default function UsuarioDetallePage() {
   const [editarOpen, setEditarOpen] = useState(false);
   const [perfilForm, setPerfilForm] = useState({ nombreCompleto: "", telefono: "" });
   const [saving, setSaving] = useState<string | null>(null);
+  const [editarVivienda, setEditarVivienda] = useState<{ id: string; direccion: string } | null>(null);
+  const [errorDireccion, setErrorDireccion] = useState("");
   const [viviendaOpen, setViviendaOpen] = useState(false);
   const [chorroOpen, setChorroOpen] = useState<string | null>(null);
   const [direccion, setDireccion] = useState("");
@@ -58,6 +60,28 @@ export default function UsuarioDetallePage() {
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function guardarDireccion(e: FormEvent) {
+    e.preventDefault();
+    if (!isAdmin || saving || !editarVivienda) return;
+    const direccionCorregida = editarVivienda.direccion.trim();
+    if (direccionCorregida.length < 3 || direccionCorregida.length > 300) return;
+    setSaving("direccion");
+    setErrorDireccion("");
+    try {
+      await api(`/api/usuarios/viviendas/${editarVivienda.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ direccion: direccionCorregida }),
+      });
+      setData((actual) => actual ? { ...actual, viviendas: actual.viviendas?.map((v) => v.id === editarVivienda.id ? { ...v, direccion: direccionCorregida } : v) } : actual);
+      setEditarVivienda(null);
+      toast.success("Dirección actualizada");
+    } catch (err) {
+      setErrorDireccion(err instanceof ApiError ? err.message : "No se pudo actualizar la dirección.");
+    } finally {
+      setSaving(null);
+    }
+  }
 
   async function crearVivienda(e: FormEvent) {
     e.preventDefault();
@@ -196,7 +220,6 @@ export default function UsuarioDetallePage() {
         {(data.viviendas ?? []).length === 0 ? (
           <EmptyState
             title="Sin viviendas"
-            description="La vivienda y los chorros se anotan en esta ficha."
             action={
               isAdmin ? (
                 <Button onClick={() => setViviendaOpen(true)}>
@@ -220,6 +243,8 @@ export default function UsuarioDetallePage() {
                     </p>
                   </div>
                   {isAdmin && (
+                    <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" disabled={!!saving} onClick={() => { setEditarVivienda({ id: v.id, direccion: v.direccion }); setErrorDireccion(""); }}><Pencil className="size-4" />Editar dirección</Button>
                     <Button
                       variant="outline"
                       onClick={() => {
@@ -229,6 +254,7 @@ export default function UsuarioDetallePage() {
                     >
                       Agregar chorro
                     </Button>
+                    </div>
                   )}
                 </div>
                 <ul className="mt-3 divide-y divide-border border-y border-border">
@@ -267,7 +293,18 @@ export default function UsuarioDetallePage() {
 
       <UsuarioAccionDialog pendiente={pendiente} onClose={() => setPendiente(null)} onConfirm={confirmarAccion} />
 
-      <Dialog open={editarOpen} onOpenChange={(open) => { if (!saving) setEditarOpen(open); }}><DialogContent><DialogHeader><DialogTitle>Editar datos del beneficiario</DialogTitle></DialogHeader><form onSubmit={guardarPerfil} className="space-y-4"><div className="space-y-2"><Label htmlFor="editar-nombre">Nombre completo</Label><Input id="editar-nombre" required minLength={3} maxLength={200} value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div><div className="space-y-2"><Label htmlFor="editar-telefono">Teléfono</Label><Input id="editar-telefono" maxLength={30} value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div><p className="text-xs text-muted-foreground">El DPI identifica el registro y no se modifica desde esta ficha.</p><Button type="submit" disabled={!!saving} className="w-full">{saving === "perfil" ? "Guardando…" : "Guardar cambios"}</Button></form></DialogContent></Dialog>
+      <Dialog open={editarOpen} onOpenChange={(open) => { if (!saving) setEditarOpen(open); }}><DialogContent><DialogHeader><DialogTitle>Editar datos del beneficiario</DialogTitle></DialogHeader><form onSubmit={guardarPerfil} className="space-y-4"><div className="space-y-2"><Label htmlFor="editar-nombre">Nombre completo</Label><Input id="editar-nombre" required minLength={3} maxLength={200} value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div><div className="space-y-2"><Label htmlFor="editar-telefono">Teléfono</Label><Input id="editar-telefono" maxLength={30} value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div><p className="text-xs text-muted-foreground">El DPI no se puede modificar.</p><Button type="submit" disabled={!!saving} className="w-full">{saving === "perfil" ? "Guardando…" : "Guardar cambios"}</Button></form></DialogContent></Dialog>
+
+      <Dialog open={!!editarVivienda} onOpenChange={(open) => { if (!open && !saving) setEditarVivienda(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar dirección de vivienda</DialogTitle></DialogHeader>
+          <form onSubmit={guardarDireccion} className="space-y-4">
+            <div className="space-y-2"><Label htmlFor="editar-direccion">Dirección</Label><Input id="editar-direccion" value={editarVivienda?.direccion ?? ""} required minLength={3} maxLength={300} disabled={!!saving} onChange={(e) => { const direccion = e.target.value; setEditarVivienda((v) => v ? { ...v, direccion } : v); setErrorDireccion(""); }} aria-invalid={!!errorDireccion} aria-describedby={errorDireccion ? "direccion-error" : undefined} /></div>
+            {errorDireccion && <p id="direccion-error" role="alert" className="text-sm text-destructive">{errorDireccion}</p>}
+            <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" disabled={!!saving} onClick={() => setEditarVivienda(null)}>Cancelar</Button><Button type="submit" disabled={!!saving || (editarVivienda?.direccion.trim().length ?? 0) < 3}>{saving === "direccion" ? "Guardando…" : "Guardar dirección"}</Button></div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={viviendaOpen} onOpenChange={setViviendaOpen}>
         <DialogContent>

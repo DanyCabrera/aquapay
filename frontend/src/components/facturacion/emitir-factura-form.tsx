@@ -271,6 +271,9 @@ export function EmitirFacturaForm() {
         }),
       );
 
+      setTipo("tarifa");
+      setAnioCancelar(String(anioActual));
+      setChorroCompraId("");
       setUsuarioId("");
       setUsuario(null);
       setViviendaId("");
@@ -333,7 +336,7 @@ export function EmitirFacturaForm() {
                   </option>
                 ))}
               </select>
-              {!loadingUsuarios && !errorUsuarios && busqueda && <p className="text-xs text-muted-foreground" aria-live="polite">{usuariosFiltrados.length} beneficiarios activos encontrados{busqueda ? ` para «${busqueda}»` : ""}.</p>}
+              {!loadingUsuarios && !errorUsuarios && busqueda.trim() && <p className="text-xs text-muted-foreground" aria-live="polite">{`${usuariosFiltrados.length} ${usuariosFiltrados.length === 1 ? "beneficiario activo encontrado" : "beneficiarios activos encontrados"} para «${busqueda.trim()}».`}</p>}
             </div>
 
             <div className="space-y-1.5">
