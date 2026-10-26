@@ -21,9 +21,10 @@ test.describe("Emitir factura", () => {
   }) => {
     await page.goto("/facturacion");
     const lista = page.getByRole("combobox", { name: "Beneficiario" });
-    const opcion = lista.locator("option", { hasText: deuda.nombre });
+    await lista.fill(deuda.nombre);
+    const opcion = page.getByRole("option", { name: new RegExp(deuda.nombre) });
     await expect(opcion).toHaveCount(1);
-    await lista.selectOption((await opcion.getAttribute("value")) ?? "");
+    await opcion.click();
 
     await expect(page.getByText(/Se cobrará/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Emitir" })).toBeEnabled();

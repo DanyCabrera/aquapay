@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, House, Loader2, Receipt, Search, ShieldCheck } from "lucide-react";
 import { ReceiptList } from "@/components/tesorero/receipt-list";
@@ -307,39 +307,27 @@ export function EmitirFacturaForm() {
 
       <fieldset disabled={loading} className="contents"><div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
       <div className="space-y-5 min-w-0">
-      <section className="admin-surface overflow-hidden">
+      <section className="admin-surface">
         <div className="admin-surface-header"><div><p className="admin-kicker mb-1">Paso 01</p><h2>Beneficiario y vivienda</h2></div><House className="size-5 text-primary" /></div>
       <div className="emision-section-body space-y-6 p-5 sm:p-6">
           {errorUsuarios && <div role="alert" className="space-y-3 text-sm text-destructive"><p>{errorUsuarios}</p><Button variant="outline" onClick={() => void cargarUsuarios()}>Reintentar</Button></div>}
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="buscar">Beneficiario</Label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="buscar"
-                  className="h-10 rounded-full pl-10"
-                  placeholder="Nombre o DPI"
-                  value={busqueda}
-                  onChange={(e) => { setBusqueda(e.target.value); if (usuarioId) void onSelectUsuario(""); }}
-                />
-              </div>
-              <select
-                aria-label="Beneficiario"
-                className={cn(nativeSelectClass, "mt-2 h-10")}
-                value={usuarioId}
-                disabled={loadingUsuarios || loading}
-                onChange={(e) => onSelectUsuario(e.target.value)}
-              >
-                <option value="">{loadingUsuarios ? "Cargando beneficiarios…" : "Seleccionar beneficiario"}</option>
-                {usuariosFiltrados.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.nombreCompleto} — {formatDpi(u.dpi)}
-                  </option>
-                ))}
-              </select>
-              {!loadingUsuarios && !errorUsuarios && busqueda.trim() && <p className="text-xs text-muted-foreground" aria-live="polite">{`${usuariosFiltrados.length} ${usuariosFiltrados.length === 1 ? "beneficiario activo encontrado" : "beneficiarios activos encontrados"} para «${busqueda.trim()}».`}</p>}
-            </div>
+            <BeneficiarioCombobox
+              busqueda={busqueda}
+              usuarioId={usuarioId}
+              opciones={usuariosFiltrados}
+              loading={loadingUsuarios}
+              disabled={loadingUsuarios || loading}
+              error={errorUsuarios}
+              onBusqueda={(valor) => {
+                setBusqueda(valor);
+                if (usuarioId) void onSelectUsuario("");
+              }}
+              onSeleccionar={(u) => {
+                setBusqueda(u.nombreCompleto);
+                void onSelectUsuario(u.id);
+              }}
+            />
 
             <div className="space-y-1.5">
               <Label htmlFor="beneficiario-nombre">Nombre</Label>
@@ -572,6 +560,156 @@ export function EmitirFacturaForm() {
       }} />
       <ReciboPdfViewer source={pdfSource} onClose={() => setPdfSource(null)} />
     </PageStack>
+  );
+}
+
+function coincideTexto(texto: string, query: string) {
+  const q = query.trim();
+  if (!q) return texto;
+  const i = texto.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return texto;
+  return (
+    <>
+      {texto.slice(0, i)}
+      <span className="font-semibold text-primary">{texto.slice(i, i + q.length)}</span>
+      {texto.slice(i + q.length)}
+    </>
+  );
+}
+
+function BeneficiarioCombobox({
+  busqueda,
+  usuarioId,
+  opciones,
+  loading,
+  disabled,
+  error,
+  onBusqueda,
+  onSeleccionar,
+}: {
+  busqueda: string;
+  usuarioId: string;
+  opciones: UsuarioComunidad[];
+  loading: boolean;
+  disabled: boolean;
+  error: string;
+  onBusqueda: (valor: string) => void;
+  onSeleccionar: (usuario: UsuarioComunidad) => void;
+}) {
+  const listId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [abierto, setAbierto] = useState(false);
+  const [resaltado, setResaltado] = useState(0);
+  const mostrarLista = abierto && !loading && !error;
+
+  useEffect(() => { setResaltado(0); }, [busqueda]);
+
+  useEffect(() => {
+    if (!mostrarLista) return;
+    function onPointer(e: PointerEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setAbierto(false);
+    }
+    document.addEventListener("pointerdown", onPointer);
+    return () => document.removeEventListener("pointerdown", onPointer);
+  }, [mostrarLista]);
+
+  useEffect(() => {
+    if (!mostrarLista) return;
+    const list = document.getElementById(listId);
+    const el = document.getElementById(`${listId}-opt-${resaltado}`);
+    if (!list || !el) return;
+    const top = el.offsetTop;
+    const bottom = top + el.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+  }, [mostrarLista, resaltado, listId]);
+
+  function elegir(u: UsuarioComunidad) {
+    onSeleccionar(u);
+    setAbierto(false);
+  }
+
+  return (
+    <div
+      ref={rootRef}
+      className="space-y-1.5 sm:col-span-2"
+      data-testid="beneficiario-combobox"
+      data-usuario-id={usuarioId}
+    >
+      <Label htmlFor="buscar">Beneficiario</Label>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          id="buscar"
+          role="combobox"
+          aria-label="Beneficiario"
+          aria-autocomplete="list"
+          aria-expanded={mostrarLista}
+          aria-controls={listId}
+          aria-activedescendant={mostrarLista && opciones[resaltado] ? `${listId}-opt-${resaltado}` : undefined}
+          autoComplete="off"
+          spellCheck={false}
+          className="h-10 rounded-full pl-10"
+          placeholder={loading ? "Cargando beneficiarios…" : "Nombre o DPI"}
+          value={busqueda}
+          disabled={disabled}
+          onFocus={() => { if (!disabled && !error) setAbierto(true); }}
+          onChange={(e) => {
+            onBusqueda(e.target.value);
+            if (!error) setAbierto(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              if (!mostrarLista) { if (!error) setAbierto(true); return; }
+              setResaltado((i) => Math.min(i + 1, Math.max(opciones.length - 1, 0)));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setResaltado((i) => Math.max(i - 1, 0));
+            } else if (e.key === "Enter") {
+              if (mostrarLista && opciones[resaltado]) {
+                e.preventDefault();
+                elegir(opciones[resaltado]);
+              }
+            } else if (e.key === "Escape") {
+              setAbierto(false);
+            }
+          }}
+        />
+        {mostrarLista && (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label="Sugerencias de beneficiario"
+          className="absolute top-full z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-2xl border border-border bg-card p-1 shadow-lg"
+        >
+          {opciones.length === 0 ? (
+            <li className="px-3 py-2.5 text-sm text-muted-foreground">Sin coincidencias</li>
+          ) : opciones.map((u, i) => (
+            <li
+              key={u.id}
+              id={`${listId}-opt-${i}`}
+              role="option"
+              aria-selected={i === resaltado}
+              className={cn(
+                "flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition-ui",
+                i === resaltado ? "bg-primary/10 text-foreground" : "text-foreground hover:bg-muted",
+              )}
+              onMouseEnter={() => setResaltado(i)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => elegir(u)}
+            >
+              <span className="min-w-0 truncate font-medium">{coincideTexto(u.nombreCompleto, busqueda)}</span>
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">{coincideTexto(formatDpi(u.dpi), busqueda.trim())}</span>
+            </li>
+          ))}
+        </ul>
+        )}
+      </div>
+      {!loading && !error && busqueda.trim() && !usuarioId && (
+        <p className="text-xs text-muted-foreground" aria-live="polite">{`${opciones.length} ${opciones.length === 1 ? "beneficiario activo encontrado" : "beneficiarios activos encontrados"} para «${busqueda.trim()}».`}</p>
+      )}
+    </div>
   );
 }
 

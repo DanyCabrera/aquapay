@@ -19,7 +19,8 @@ describe("TESORERO — resumen fijo y descripción opcional", () => {
     cy.intercept("GET", "**/api/usuarios", { body: { success: true, data: [beneficiario] } });
     cy.intercept("GET", "**/api/facturacion/pendientes/*", { body: { success: true, data: { tarifaAnual: 120, totalChorros: 2, aniosPendientes: [year], detalle: [{ anio: year, monto: 240 }], vivienda, chorrosPendientesCompra: [{ id: "chorro-prueba", cantidad: 2, precioCompra: "1500", activo: true }] } } }).as("pendientes");
     cy.visit("/facturacion");
-    cy.get('select[aria-label="Beneficiario"]').select(beneficiario.id);
+    cy.get("#buscar").should("not.be.disabled").click();
+    cy.contains('[role="option"]', beneficiario.nombreCompleto).click();
     cy.wait("@pendientes");
     cy.contains("button", /^Emitir$/).should("be.enabled");
   });

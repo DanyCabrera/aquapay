@@ -72,13 +72,11 @@ describe("TESORERO — rediseño", () => {
     cy.wait("@beneficiarios");
     cy.contains("button", /^Emitir$/).should("be.disabled");
     cy.get("#buscar").type("NombreInexistenteSinNumeros");
-    cy.get('select[aria-label="Beneficiario"] option').should("have.length", 1);
+    cy.contains('[role="listbox"]', "Sin coincidencias").should("be.visible");
     cy.contains("0 beneficiarios activos encontrados").should("be.visible");
     cy.get("#buscar").clear();
-    cy.get('select[aria-label="Beneficiario"] option').then(($options) => {
-      const value = $options.eq(1).val();
-      cy.get('select[aria-label="Beneficiario"]').select(String(value));
-    });
+    cy.get('[role="listbox"] [role="option"]').should("have.length.at.least", 1);
+    cy.get('[role="listbox"] [role="option"]').first().click();
     cy.wait("@pendientes").its("response.statusCode").should("eq", 200);
     cy.contains("h2", "Resumen del cobro").should("exist");
     cy.get("aside.admin-surface").should("not.contain.text", "Por seleccionar");

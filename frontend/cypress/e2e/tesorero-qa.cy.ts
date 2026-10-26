@@ -15,7 +15,8 @@ function visitar(path: string) {
 }
 function elegirCompra() {
   visitar("/facturacion");
-  cy.get('select[aria-label="Beneficiario"]').select(beneficiario.id);
+  cy.get("#buscar").should("not.be.disabled").click();
+  cy.contains('[role="option"]', beneficiario.nombreCompleto).click();
   cy.contains('[role="radio"]', "Compra de chorro").click();
   cy.get("#descripcion-pago").type("Detalle que debe conservarse si falla el cobro.");
   cy.contains("button", /^Emitir$/).should("be.enabled");
@@ -65,7 +66,7 @@ describe("Correcciones del informe QA del tesorero", () => {
     cy.get('[role="dialog"]').should("be.visible");
     cy.contains('[role="dialog"] button', "Cerrar").click();
     cy.contains('[role="radio"]', "Tarifa anual").should("have.attr", "aria-checked", "true");
-    cy.get('select[aria-label="Beneficiario"]').should("have.value", "");
+    cy.get('[data-testid="beneficiario-combobox"]').should("have.attr", "data-usuario-id", "");
     cy.get("#descripcion-pago").should("have.value", "");
     cy.get("#anio").should("have.value", String(year));
     cy.contains("button", /^Emitir$/).should("be.disabled");
@@ -78,7 +79,7 @@ describe("Correcciones del informe QA del tesorero", () => {
     cy.contains("button", /^Emitir$/).click();
     cy.wait("@fallo");
     cy.contains('[role="radio"]', "Compra de chorro").should("have.attr", "aria-checked", "true");
-    cy.get('select[aria-label="Beneficiario"]').should("have.value", beneficiario.id);
+    cy.get('[data-testid="beneficiario-combobox"]').should("have.attr", "data-usuario-id", beneficiario.id);
     cy.get("#descripcion-pago").should("have.value", "Detalle que debe conservarse si falla el cobro.");
     cy.contains("button", /^Emitir$/).should("be.enabled");
   });

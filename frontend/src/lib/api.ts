@@ -76,10 +76,25 @@ export async function api<T>(
     return blob as T;
   }
 
-  const json = await res.json().catch(() => ({}));
+  const text = await res.text();
+  let json: { message?: string; data?: T } = {};
+  if (text) {
+    try {
+      json = JSON.parse(text) as { message?: string; data?: T };
+    } catch {
+      json = {};
+    }
+  }
   if (!res.ok) {
     dropInvalidSession(path, token, res.status);
-    throw new ApiError(json.message ?? "Error de servidor", res.status);
+    const rutaAusente = /cannot (delete|put|patch|post)/i.test(text);
+    throw new ApiError(
+      json.message
+        ?? (rutaAusente
+          ? "El API publicado no tiene esta acción. Usa el backend local o vuelve a desplegar el servidor."
+          : "Error de servidor"),
+      res.status,
+    );
   }
   return (json.data ?? json) as T;
 }
