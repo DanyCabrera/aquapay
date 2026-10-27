@@ -8,22 +8,45 @@ import {
   useMemo,
   useState,
 } from "react";
+import { toast } from "sonner";
 import { api, ApiError } from "./api";
 import type { UsuarioSistema } from "./types";
 
 const TOKEN_KEY = "aquapay_token";
 const USER_KEY = "aquapay_user";
 const REMEMBER_KEY = "aquapay_remember";
+const LAST_ACTIVITY_KEY = "aquapay_last_activity";
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const IDLE_EVENTS = ["mousedown", "mousemove", "keydown", "scroll", "touchstart", "click", "wheel"] as const;
 
 function readStore(remember: boolean) {
   return remember ? localStorage : sessionStorage;
 }
 
+function readLastActivity() {
+  const raw = localStorage.getItem(LAST_ACTIVITY_KEY) ?? sessionStorage.getItem(LAST_ACTIVITY_KEY);
+  const last = raw ? Number(raw) : 0;
+  return Number.isFinite(last) ? last : 0;
+}
+
+function stampActivity() {
+  const now = String(Date.now());
+  localStorage.setItem(LAST_ACTIVITY_KEY, now);
+  sessionStorage.setItem(LAST_ACTIVITY_KEY, now);
+}
+
+function sessionExpiredByIdle() {
+  const last = readLastActivity();
+  return last > 0 && Date.now() - last >= IDLE_TIMEOUT_MS;
+}
+
 function clearStoredSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(LAST_ACTIVITY_KEY);
   sessionStorage.removeItem("aquapay_mfa_ok");
 }
 
@@ -55,6 +78,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const store = readStore(remember);
       const t = store.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
       if (!t) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
+      if (sessionExpiredByIdle()) {
+        clearStoredSession();
         if (!cancelled) setLoading(false);
         return;
       }
@@ -116,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const store = readStore(remember);
       store.setItem(TOKEN_KEY, t);
       store.setItem(USER_KEY, JSON.stringify(u));
+      stampActivity();
 
       setToken(t);
       setUser(u);
@@ -140,6 +170,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setUser(null);
   }, []);
+
+  useEffect(() => {
+    if (!user || !token) return;
+
+    let timer = 0;
+    let lastStamp = 0;
+    let closing = false;
+
+    function schedule() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void expire();
+      }, IDLE_TIMEOUT_MS);
+    }
+
+    async function expire() {
+      if (closing) return;
+      closing = true;
+      toast.info("Sesión cerrada por inactividad.");
+      await logout();
+    }
+
+    function onActivity() {
+      const now = Date.now();
+      if (now - lastStamp < 1000) return;
+      lastStamp = now;
+      stampActivity();
+      schedule();
+    }
+
+    function onVisibility() {
+      if (document.visibilityState !== "visible") return;
+      if (sessionExpiredByIdle()) {
+        void expire();
+        return;
+      }
+      schedule();
+    }
+
+    stampActivity();
+    schedule();
+    for (const event of IDLE_EVENTS) {
+      window.addEventListener(event, onActivity, { passive: true });
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.clearTimeout(timer);
+      for (const event of IDLE_EVENTS) {
+        window.removeEventListener(event, onActivity);
+      }
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [user, token, logout]);
 
   const value = useMemo(
     () => ({
