@@ -29,7 +29,7 @@ export function createApp() {
   app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));
 
   app.get("/health", (_req, res) => {
-    res.json({ ok: true, service: "aquapay-api" });
+    res.json({ ok: true, service: "aquapay-api", version: "1.0.1" });
   });
 
   app.use("/api/auth", authRoutes);
