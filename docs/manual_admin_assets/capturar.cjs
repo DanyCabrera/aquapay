@@ -1,0 +1,46 @@
+const {chromium}=require('C:/Users/Usuario/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const fs=require('fs'),path=require('path'); const out=__dirname;
+const user={id:'demo-admin',nombre:'Administración de ejemplo',rol:'administrador',activo:true};
+const ch={id:'demo-c',cantidad:1,precioCompra:'1500',activo:true,fechaInstalacion:'2026-01-10'};
+const v={id:'demo-v',direccion:'Sector Central · Casa de ejemplo 01',anioInicioCobro:2026,activa:true,chorros:[ch]};
+const u={id:'demo-u',nombreCompleto:'María López Ejemplo',dpi:'0000000000001',telefono:'0000 0000',activo:true,fechaRegistro:'2026-01-10',viviendas:[v]};
+const lista=[u,{...u,id:'demo-u2',nombreCompleto:'Pedro García Ejemplo',dpi:'0000000000002',activo:false,viviendas:[]}];
+const recibos=[{id:'demo-r',numeroRecibo:'2026-024',fechaPago:'2026-10-27',tipoCobro:'tarifa_anual',totalPagado:'120',vivienda:{...v,usuario:u},tesorero:{nombre:'Tesorería de ejemplo'}}];
+(async()=>{const browser=await chromium.launch({headless:true,channel:'msedge'});const ctx=await browser.newContext({viewport:{width:1440,height:960}});
+await ctx.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url()),p=url.pathname; let data;
+if(p.endsWith('/auth/me'))data=user;
+else if(p.endsWith('/dashboard'))data={ingresosMes:120,ingresosMesTarifa:120,ingresosMesChorro:0,facturasMes:1,tarifaAnual:120,totalUsuarios:1,totalViviendas:1,totalChorros:1,ingresosPorMes:[{mes:10,total:120}]};
+else if(p.endsWith('/pdf')){await route.fulfill({contentType:'application/pdf',body:fs.readFileSync(path.join(out,'../manual_assets/ejemplo.pdf'))});return;}
+else if(p==='/api/usuarios')data=req.method()==='POST'?u:lista;
+else if(p==='/api/usuarios/demo-u')data=u;
+else if(p==='/api/usuarios/demo-u/viviendas')data=v;
+else if(p==='/api/facturacion/recibos')data=recibos;
+else if(p==='/api/facturacion/config')data={tarifaAnual:120,lugarPago:'Aldea Sibaná'};
+else if(p.startsWith('/api/reportes/')){const tipo=p.split('/').pop(); data=tipo==='usuarios'?{titulo:'Padrón de usuarios',columnas:['Nombre','DPI','Teléfono','Estado'],filas:lista.map(x=>[x.nombreCompleto,x.dpi,x.telefono,x.activo?'Activo':'Inactivo'])}:tipo==='viviendas'?{titulo:'Viviendas registradas',columnas:['Beneficiario','Dirección','Año de inicio','Estado'],filas:[[u.nombreCompleto,v.direccion,'2026','Activa']]}:tipo==='pagos'?{titulo:'Recibos emitidos',columnas:['Recibo','Beneficiario','Fecha','Concepto','Total'],filas:[['2026-024',u.nombreCompleto,'27/10/2026','Tarifa anual','120.00']]}:{titulo:'Ingresos mensuales',columnas:['Mes','Recibos','Total'],filas:[['Octubre','1','120.00']]};}
+else {await route.fulfill({status:400,json:{message:'Acción bloqueada en la demostración'}});return;}
+await route.fulfill({json:{success:true,data}});});
+const page=await ctx.newPage();page.setDefaultTimeout(90000);
+async function shot(name,targets=[],dialog=false){await page.evaluate(()=>document.querySelectorAll('.manual-marker').forEach(e=>e.remove()));
+for(let i=0;i<targets.length;i++){const b=await targets[i].first().boundingBox();if(!b)throw Error('Control no visible '+name+' '+i);await page.evaluate(({b,n})=>{const e=document.createElement('div');e.className='manual-marker';e.textContent=n;Object.assign(e.style,{position:'fixed',left:Math.max(2,b.x-12)+'px',top:Math.max(2,b.y-13)+'px',width:'27px',height:'27px',borderRadius:'50%',background:'#ba182b',color:'white',font:'bold 17px Arial',display:'flex',alignItems:'center',justifyContent:'center',zIndex:'99999',boxShadow:'0 0 0 3px white',pointerEvents:'none'});document.body.appendChild(e);},{b,n:i+1});}
+let clip;if(dialog){const b=await page.getByRole('dialog').or(page.getByRole('alertdialog')).first().boundingBox();clip={x:b.x-22,y:b.y-22,width:b.width+44,height:b.height+44};}
+await page.screenshot({path:path.join(out,name+'.png'),...(clip?{clip}:{})});await page.evaluate(()=>document.querySelectorAll('.manual-marker').forEach(e=>e.remove()));console.log(name);}
+const btn=n=>page.getByRole('button',{name:n,exact:true});const field=id=>page.locator('#'+id);
+async function go(p){await page.goto('http://127.0.0.1:3010'+p);}
+await go('/login');await page.getByLabel('DPI',{exact:true}).waitFor();await page.evaluate(user=>{localStorage.setItem('aquapay_token','demo-manual-admin');localStorage.setItem('aquapay_user',JSON.stringify(user));localStorage.setItem('theme','light');},user);
+await go('/dashboard');await page.getByText('Estado del padrón',{exact:true}).waitFor();await page.waitForTimeout(700);await shot('01_dashboard',[page.getByRole('button',{name:'Actualizar resumen'}),page.getByRole('link',{name:'Beneficiarios',exact:true}),page.getByRole('link',{name:'Reportes',exact:true})]);
+await go('/usuarios');await btn('Buscar').waitFor();await page.getByRole('link',{name:u.nombreCompleto,exact:true}).waitFor();await shot('02_padron',[page.getByRole('textbox',{name:'Buscar beneficiarios'}),btn('Buscar'),btn('Activos'),page.getByRole('combobox',{name:'Ordenar beneficiarios'}),btn('Exportar CSV'),page.locator('main').getByRole('link',{name:'Registrar',exact:true})]);
+if(process.env.MANUAL_FIX){await page.setViewportSize({width:390,height:844});await go('/dashboard');await page.getByRole('button',{name:'Abrir menú'}).click();await page.waitForTimeout(400);await shot('20_movil',[page.getByRole('link',{name:'Beneficiarios',exact:true}),page.getByRole('link',{name:'Reportes',exact:true}),btn('Salir')]);await browser.close();return;}
+await go('/usuarios/nuevo');await field('nombre').fill(u.nombreCompleto);await field('dpi').fill(u.dpi);await field('tel').fill('00000000');await shot('03_persona',[field('nombre'),field('dpi'),field('tel'),btn('Continuar')]);await btn('Continuar').click();await field('direccion').fill(v.direccion);await shot('04_vivienda',[field('direccion'),field('anio'),page.getByRole('switch',{name:'Vivienda activa'}),btn('Continuar')]);await btn('Continuar').click();await field('cantidad').waitFor();await shot('05_chorro',[field('cantidad'),field('precio'),field('total'),field('fecha'),btn('Finalizar')]);
+await go('/usuarios/demo-u');await btn('Editar datos').waitFor();await shot('06_ficha',[btn('Editar datos'),btn('Agregar vivienda'),btn('Editar dirección'),btn('Agregar chorro'),page.getByRole('link',{name:'Consultar pago',exact:true}).last()]);
+await btn('Editar datos').click();await shot('07_editar',[field('editar-nombre'),field('editar-telefono'),btn('Guardar cambios')],true);await page.keyboard.press('Escape');
+await btn('Agregar vivienda').click();await shot('08_nueva_vivienda',[field('nueva-direccion'),field('nuevo-anio'),btn('Guardar')],true);await page.keyboard.press('Escape');
+await btn('Editar dirección').click();await shot('09_direccion',[field('editar-direccion'),btn('Guardar dirección'),btn('Cancelar')],true);await page.keyboard.press('Escape');
+await btn('Agregar chorro').click();await shot('10_nuevo_chorro',[field('nuevo-chorro-cantidad'),field('nuevo-chorro-total'),btn('Guardar')],true);await page.keyboard.press('Escape');
+await page.getByRole('switch',{name:'Deshabilitar usuario'}).click();await shot('11_desactivar',[btn('Cancelar'),btn('Sí, desactivar')],true);await btn('Cancelar').click();
+await btn('Eliminar beneficiario').click();await shot('12_eliminar_beneficiario',[page.getByRole('checkbox'),btn('Cancelar'),btn('Sí, eliminar')],true);await btn('Cancelar').click();
+await go('/pagos');await btn('Ver recibos').waitFor();await shot('13_pagos',[page.getByRole('textbox',{name:'Buscar quien ya pagó'}),page.getByRole('combobox',{name:'Año',exact:true}),btn('Buscar'),btn('Ver recibos')]);await btn('Ver recibos').click();await shot('14_recibos',[btn('Ver PDF'),page.getByRole('button',{name:'Eliminar recibo 2026-024'}),page.getByRole('link',{name:'Abrir ficha'})]);
+await btn('Ver PDF').click();await btn('Descargar').waitFor();await page.waitForTimeout(900);await shot('15_pdf',[btn('Imprimir'),btn('Descargar'),btn('Cerrar').first()]);await btn('Cerrar').first().click();
+await page.getByRole('button',{name:'Eliminar recibo 2026-024'}).click();await shot('16_eliminar_recibo',[btn('Cancelar'),btn('Sí, eliminar recibo')],true);await btn('Cancelar').click();
+await go('/reportes');await page.getByRole('textbox',{name:'Buscar en el reporte'}).waitFor();await shot('17_reportes',[btn('Usuarios'),btn('Viviendas'),btn('Recibos'),btn('Ingresos'),page.getByRole('textbox',{name:'Buscar en el reporte'}),btn('Exportar CSV'),btn('Exportar PDF')]);await btn('Ingresos').click();await page.getByRole('spinbutton',{name:'Año del reporte'}).waitFor();await shot('18_anual',[page.getByRole('spinbutton',{name:'Año del reporte'}),btn('Aplicar año'),btn('Exportar PDF'),btn('Exportar CSV')]);
+await go('/configuracion');await field('tarifa').waitFor();await field('tarifa').fill('150');await field('simulador-chorros').fill('2');await shot('19_tarifa',[field('tarifa'),field('simulador-chorros'),btn('Guardar cambios'),field('lugar')]);
+await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Abrir menú'}).click();await shot('20_movil',[page.getByRole('link',{name:'Beneficiarios',exact:true}),page.getByRole('link',{name:'Reportes',exact:true}),btn('Salir')]);await browser.close();})();
